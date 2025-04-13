@@ -7,6 +7,11 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/yourusername/guardian)](https://goreportcard.com/report/github.com/yourusername/guardian)
 [![License](https://img.shields.io/github/license/yourusername/guardian)](LICENSE) -->
 
+## Dev Notes for yall
+- Build Executible: cd ~/rhack && go build -o dist/guardian cmd/guardian/main.go
+- Start Mock Server: cd ~/rhack/examples/mock-node-app && npm start
+- Test Mock Server: cd ~/rhack/examples/mock-node-app && npm test
+
 ## Why Guardian?
 
 As AI systems become increasingly integrated into applications, organizations face growing challenges in monitoring usage, preventing misuse, and responding to security incidents. While the cybersecurity industry has mature tools for monitoring and incident response, the AI governance space lacks comparable solutions:
