@@ -2,11 +2,11 @@
 package dashboard
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -14,6 +14,9 @@ import (
 
 	"github.com/gorilla/websocket"
 )
+
+//go:embed templates/* static/*
+var dashboardContent embed.FS
 
 // Config contains configuration options for the dashboard
 type Config struct {
@@ -274,19 +277,24 @@ func (d *Dashboard) dashboardHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Load dashboard template
-	tmplPath := filepath.Join("pkg", "dashboard", "templates", "dashboard.html")
-	content, err := os.ReadFile(tmplPath)
+	tmplPath := "templates/dashboard.html"
+	log.Printf("Looking for dashboard template at: %s", tmplPath)
+
+	content, err := dashboardContent.ReadFile(tmplPath)
 	if err != nil {
+		log.Printf("Error reading dashboard template: %v", err)
 		http.Error(w, "Dashboard template not found", http.StatusInternalServerError)
 		return
 	}
+
+	log.Printf("Dashboard template found, size: %d bytes", len(content))
 
 	// Replace template variables
 	htmlContent := string(content)
 	htmlContent = strings.Replace(htmlContent, "{{.ServiceName}}", d.config.ServiceName, -1)
 	htmlContent = strings.Replace(htmlContent, "{{.Environment}}", d.config.Environment, -1)
 	htmlContent = strings.Replace(htmlContent, "{{.WebSocketEnabled}}", fmt.Sprintf("%t", d.config.EnableWebsocket), -1)
-	htmlContent = strings.Replace(htmlContent, "{{.RefreshInterval}}", fmt.Sprintf("%d", int(d.config.RefreshInterval.Seconds())*1000), -1)
+	htmlContent = strings.Replace(htmlContent, "{{.RefreshInterval}}", fmt.Sprintf("%d", int(d.config.RefreshInterval.Seconds())), -1)
 
 	w.Header().Set("Content-Type", "text/html")
 	w.Write([]byte(htmlContent))
@@ -296,10 +304,11 @@ func (d *Dashboard) dashboardHandler(w http.ResponseWriter, r *http.Request) {
 func (d *Dashboard) staticHandler(w http.ResponseWriter, r *http.Request) {
 	// Extract the file path from the URL
 	filePath := r.URL.Path[len("/static/"):]
-	fullPath := filepath.Join("pkg", "dashboard", "static", filePath)
+	fullPath := filepath.Join("static", filePath)
 
 	// Check if file exists
-	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+	content, err := dashboardContent.ReadFile(fullPath)
+	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
@@ -320,7 +329,7 @@ func (d *Dashboard) staticHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Serve the file
 	w.Header().Set("Content-Type", contentType)
-	http.ServeFile(w, r, fullPath)
+	w.Write(content)
 }
 
 // metricsHandler handles API requests for metrics data

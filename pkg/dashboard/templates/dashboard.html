@@ -67,8 +67,11 @@
     <script src="/static/js/dashboard.js"></script>
     <script>
         // Configuration for web socket or polling
-        const useWebSocket = {{.WebsocketEnabled}};
-        const refreshInterval = {{.RefreshInterval}} * 1000; // Convert to milliseconds
+        const useWebSocket = {{.WebSocketEnabled}};
+        const refreshInterval = {{.RefreshInterval}}; // Value in seconds
+        
+        // Convert to milliseconds for timers
+        const refreshIntervalMs = refreshInterval * 1000;
     </script>
 </body>
 </html>
