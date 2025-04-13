@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -279,25 +280,42 @@ func (d *Dashboard) dashboardHandler(w http.ResponseWriter, r *http.Request) {
 	// Load dashboard template
 	tmplPath := "templates/dashboard.html"
 	log.Printf("Looking for dashboard template at: %s", tmplPath)
-
+	
 	content, err := dashboardContent.ReadFile(tmplPath)
 	if err != nil {
 		log.Printf("Error reading dashboard template: %v", err)
 		http.Error(w, "Dashboard template not found", http.StatusInternalServerError)
 		return
 	}
-
+	
 	log.Printf("Dashboard template found, size: %d bytes", len(content))
 
-	// Replace template variables
-	htmlContent := string(content)
-	htmlContent = strings.Replace(htmlContent, "{{.ServiceName}}", d.config.ServiceName, -1)
-	htmlContent = strings.Replace(htmlContent, "{{.Environment}}", d.config.Environment, -1)
-	htmlContent = strings.Replace(htmlContent, "{{.WebSocketEnabled}}", fmt.Sprintf("%t", d.config.EnableWebsocket), -1)
-	htmlContent = strings.Replace(htmlContent, "{{.RefreshInterval}}", fmt.Sprintf("%d", int(d.config.RefreshInterval.Seconds())), -1)
+	// Create template from content
+	tmpl, err := template.New("dashboard").Parse(string(content))
+	if err != nil {
+		log.Printf("Error parsing dashboard template: %v", err)
+		http.Error(w, "Error parsing dashboard template", http.StatusInternalServerError)
+		return
+	}
 
+	// Prepare template data
+	data := map[string]interface{}{
+		"ServiceName":      d.config.ServiceName,
+		"Environment":      d.config.Environment,
+		"WebSocketEnabled": d.config.EnableWebsocket,
+		"RefreshInterval":  int(d.config.RefreshInterval.Seconds()),
+		"Title":            "Guardian Dashboard",
+		"Metrics":          d.metrics,
+		"Activity":         d.activityFeed.Items,
+	}
+
+	// Execute template with data
 	w.Header().Set("Content-Type", "text/html")
-	w.Write([]byte(htmlContent))
+	if err := tmpl.Execute(w, data); err != nil {
+		log.Printf("Error executing dashboard template: %v", err)
+		http.Error(w, "Error rendering dashboard", http.StatusInternalServerError)
+		return
+	}
 }
 
 // staticHandler serves static files (CSS, JS)
