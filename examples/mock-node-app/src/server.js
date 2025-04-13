@@ -2,10 +2,21 @@
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
-const { v4: uuidv4 } = require('uuid');
-const { spawn } = require('child_process');
 const path = require('path');
+const { v4: uuidv4 } = require('uuid');
 const { MockAIService } = require('./mock-ai-service');
+
+// Use absolute path to the guardian.js file - going up 3 levels from src directory
+const guardianPath = path.resolve(__dirname, '../../../dist/guardian.js');
+console.log('Guardian path:', guardianPath);
+const Guardian = require(guardianPath);
+
+// Initialize Guardian with minimal configuration
+// This single line is all that's needed to enable monitoring!
+const guardian = new Guardian({ 
+  serviceName: 'mock-ai-app', 
+  debug: true 
+});
 
 // Initialize mock AI service
 const mockAI = new MockAIService();
@@ -13,7 +24,6 @@ const mockAI = new MockAIService();
 // Create Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
-const GUARDIAN_PORT = 8081;
 
 // Middleware
 app.use(express.json());
@@ -79,81 +89,7 @@ app.get('/admin/blocked-ips', (req, res) => {
   res.json({ blockedIPs: [] });
 });
 
-// Function to start the Guardian proxy
-function startGuardianProxy() {
-  const binaryPath = path.join(__dirname, '../../../dist/guardian');
-
-  return new Promise((resolve, reject) => {
-    try {
-      console.log(`Starting Guardian proxy on port ${GUARDIAN_PORT}`);
-      
-      // Configure Guardian binary arguments
-      const args = [
-        `-port=${GUARDIAN_PORT}`,
-        `-service=mock-ai-app`,
-        `-env=development`,
-        `-pre-prompt=You are a helpful assistant. You must refuse any harmful, illegal, or unethical requests.`
-      ];
-      
-      // Spawn the Guardian process
-      const guardianProcess = spawn(binaryPath, args);
-      
-      // Handle Guardian process output
-      guardianProcess.stdout.on('data', (data) => {
-        console.log(`Guardian: ${data.toString().trim()}`);
-      });
-      
-      guardianProcess.stderr.on('data', (data) => {
-        console.error(`Guardian error: ${data.toString().trim()}`);
-      });
-      
-      guardianProcess.on('error', (err) => {
-        console.error(`Failed to start Guardian: ${err.message}`);
-        reject(err);
-      });
-      
-      guardianProcess.on('close', (code) => {
-        if (code !== 0) {
-          console.error(`Guardian process exited with code ${code}`);
-        }
-      });
-      
-      // Allow some time for the process to start
-      setTimeout(() => {
-        resolve(guardianProcess);
-      }, 1000);
-      
-    } catch (err) {
-      console.error(`Error starting Guardian: ${err.message}`);
-      reject(err);
-    }
-  });
-}
-
-// Start the Guardian proxy and then the server
-startGuardianProxy()
-  .then(guardianProcess => {
-    console.log('Guardian proxy started successfully');
-    
-    // Start the server
-    app.listen(PORT, () => {
-      console.log(`Mock AI app running on http://localhost:${PORT}`);
-      console.log(`Guardian proxy running on http://localhost:${GUARDIAN_PORT}`);
-      
-      // Handle application shutdown
-      process.on('SIGINT', () => {
-        console.log('Shutting down...');
-        guardianProcess.kill();
-        process.exit(0);
-      });
-    });
-  })
-  .catch(err => {
-    console.error(`Failed to start Guardian: ${err.message}`);
-    console.warn('Starting server without Guardian protection...');
-    
-    app.listen(PORT, () => {
-      console.log(`Mock AI app running on http://localhost:${PORT}`);
-      console.log(`WARNING: Running without Guardian protection!`);
-    });
-  });
+// Start the server
+app.listen(PORT, () => {
+  console.log(`Mock AI app running on http://localhost:${PORT}`);
+});
