@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}}</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <script src="/static/js/chart.min.js"></script>
+</head>
+<body>
+    <div class="dashboard">
+        <header>
+            <h1>Guardian AI Monitoring</h1>
+            <div class="info">
+                <div class="last-update">
+                    Last updated: <span id="last-refresh">Now</span>
+                </div>
+            </div>
+        </header>
+        
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <h3>Messages Per Second</h3>
+                <div class="metric-value" id="mps-value">{{printf "%.2f" .Metrics.MessagesPerSecond}}</div>
+                <div class="chart-container">
+                    <canvas id="mps-chart"></canvas>
+                </div>
+            </div>
+            
+            <div class="metric-card">
+                <h3>Average Latency (ms)</h3>
+                <div class="metric-value" id="latency-value">{{printf "%.2f" .Metrics.AvgLatency}}</div>
+                <div class="chart-container">
+                    <canvas id="latency-chart"></canvas>
+                </div>
+            </div>
+            
+            <div class="metric-card">
+                <h3>Blocked Requests</h3>
+                <div class="metric-value" id="blocked-value">{{.Metrics.BlockedRequests}}</div>
+                <div class="chart-container">
+                    <canvas id="blocked-chart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="activity-section">
+            <h2>Recent Activity</h2>
+            <div class="activity-list" id="activity-list">
+                {{if .Activity}}
+                    {{range .Activity}}
+                    <div class="activity-item">
+                        <div class="time">{{.Time.Format "15:04:05"}}</div>
+                        <div class="method">{{.Method}}</div>
+                        <div class="endpoint">{{.Endpoint}}</div>
+                        <div class="latency">{{.Latency}}ms</div>
+                        <div class="status {{.Status}}">{{.Status}}</div>
+                    </div>
+                    {{end}}
+                {{else}}
+                    <div id="no-activity">No activity recorded yet</div>
+                {{end}}
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/js/dashboard.js"></script>
+    <script>
+        // Configuration for web socket or polling
+        const useWebSocket = {{.WebsocketEnabled}};
+        const refreshInterval = {{.RefreshInterval}} * 1000; // Convert to milliseconds
+    </script>
+</body>
+</html>
