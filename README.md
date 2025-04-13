@@ -9,8 +9,11 @@
 
 ## Dev Notes for yall
 - Build Executible: cd ~/rhack && go build -o dist/guardian cmd/guardian/main.go
+  The executible should have all buisness logic. It puts it in a dist folder that allows for the executible to be run in as a js package.
 - Start Mock Server: cd ~/rhack/examples/mock-node-app && npm start
+  The mock server is a mock up of the backend. When you run it, it will also run Guardian which along with performing the chat/completions monitoring will also generate a dashboard link.
 - Test Mock Server: cd ~/rhack/examples/mock-node-app && npm test
+  Running the test script simulates the backend recieving requests from the frontend. On the server view you should see it recieving these requests and 200ing. When the guardian dashboard is up and running you should also see that there.
 
 ## Why Guardian?
 
