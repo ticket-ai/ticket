@@ -2,8 +2,7 @@
 
 > An open-source ethical telemetry and governance platform for AI applications
 
-<!-- ![Guardian Logo](docs/assets/logo.png)
-
+<img src="docs/assets/image.png" alt="Guardian Logo" width="100"><!-- 
 [![Go Reference](https://pkg.go.dev/badge/github.com/yourusername/guardian.svg)](https://pkg.go.dev/github.com/yourusername/guardian)
 [![Go Report Card](https://goreportcard.com/badge/github.com/yourusername/guardian)](https://goreportcard.com/report/github.com/yourusername/guardian)
 [![License](https://img.shields.io/github/license/yourusername/guardian)](LICENSE) -->
