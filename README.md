@@ -1,36 +1,208 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Guardian
+
+> An open-source ethical telemetry and governance platform for AI applications
+
+<!-- ![Guardian Logo](docs/assets/logo.png)
+
+[![Go Reference](https://pkg.go.dev/badge/github.com/yourusername/guardian.svg)](https://pkg.go.dev/github.com/yourusername/guardian)
+[![Go Report Card](https://goreportcard.com/badge/github.com/yourusername/guardian)](https://goreportcard.com/report/github.com/yourusername/guardian)
+[![License](https://img.shields.io/github/license/yourusername/guardian)](LICENSE) -->
+
+## Why Guardian?
+
+As AI systems become increasingly integrated into applications, organizations face growing challenges in monitoring usage, preventing misuse, and responding to security incidents. While the cybersecurity industry has mature tools for monitoring and incident response, the AI governance space lacks comparable solutions:
+
+- **Jailbreak attempts** are constantly evolving, making it difficult for individual applications to stay ahead
+- **Distributed security risks** arise as AI capabilities are integrated across different services
+- **Lack of visibility** into how AI services are being used and potentially misused
+- **No standardized approach** to AI governance and incident response
+
+Guardian addresses these challenges by providing a language-agnostic middleware solution that enables comprehensive monitoring, detection, and governance of AI applications.
+
+## Features
+
+Guardian goes beyond simple telemetry to provide true AI governance capabilities:
+
+### 1. Comprehensive Telemetry
+
+- Automatic monitoring of all AI chat/completions endpoints
+- Integration with OpenTelemetry and the LGTM stack (Grafana, Tempo, Prometheus)
+- User behavior analytics including usage patterns, IP tracking, and request profiling
+- Customizable dashboards for visualizing AI system usage
+
+### 2. Multi-layered Security
+
+- **Distributed NLP Analysis**: Low-resource natural language processing to identify potential policy violations
+- **Review Agent**: Optional batch analysis of chat logs to detect sophisticated misuse patterns
+- **Static Analysis**: Pattern matching using regex and other techniques to catch known attack vectors
+- **Pre-prompting Management**: Standardized security controls applied across all AI endpoints
+
+### 3. Governance Tools
+
+- Real-time alerting for suspicious activity
+- Automated incident triage and categorization
+- User/IP flagging and blocking capabilities
+- Trend analysis to identify emerging attack patterns
+
+### 4. Incident Response
+
+- Centralized incident management console
+- Attack mitigation workflows
+- Forensic logging for security investigations
+- Automated remediation options
+
+## Architecture
+
+Guardian is designed as a lightweight, embeddable middleware that integrates seamlessly with your existing AI applications:
+
+```
+┌─────────────────┐      ┌───────────────┐      ┌─────────────────┐
+│                 │      │               │      │                 │
+│  Your AI App    │─────▶│   Guardian    │─────▶│   AI Provider   │
+│                 │      │  Middleware   │      │    API          │
+└─────────────────┘      └───────────────┘      └─────────────────┘
+                               │
+                               ▼
+                        ┌───────────────┐
+                        │               │
+                        │  Telemetry    │
+                        │  Pipeline     │
+                        └───────────────┘
+                               │
+                               ▼
+┌─────────────────┐      ┌───────────────┐      ┌─────────────────┐
+│                 │      │               │      │                 │
+│    Grafana      │◀────▶│  Prometheus/  │◀────▶│   Guardian      │
+│   Dashboards    │      │    Tempo      │      │   Console       │
+└─────────────────┘      └───────────────┘      └─────────────────┘
+```
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Go 1.20 or higher
+- Docker and Docker Compose (for running the monitoring stack)
+
+### Installation
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+go get github.com/yourusername/guardian
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Basic Usage
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Add Guardian middleware to your application:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```go
+import (
+    "github.com/yourusername/guardian"
+)
 
-## Learn More
+func main() {
+    // Initialize Guardian with default configuration
+    g := guardian.New(guardian.Config{
+        ServiceName: "my-ai-app",
+        Environment: "production",
+    })
+    
+    // Register Guardian as middleware in your HTTP server
+    http.Handle("/v1/completions", g.Middleware(completionsHandler))
+    http.Handle("/v1/chat", g.Middleware(chatHandler))
+    
+    // Start the server
+    http.ListenAndServe(":8080", nil)
+}
+```
 
-To learn more about Next.js, take a look at the following resources:
+### Configuration Options
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Guardian can be configured to meet your specific requirements:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```go
+config := guardian.Config{
+    // Basic configuration
+    ServiceName: "my-ai-app",
+    Environment: "production",
+    
+    // Telemetry configuration
+    OTelEndpoint: "localhost:4317",
+    MetricsEnabled: true,
+    TracingEnabled: true,
+    
+    // Security features
+    NLPAnalysisEnabled: true,
+    StaticAnalysisRules: []string{
+        `\b(system prompt|ignore previous instructions)\b`,
+        // Add custom regex patterns for known attack vectors
+    },
+    
+    // Governance options
+    AutoBlockThreshold: 0.85, // Confidence threshold for automatic blocking
+    ReviewAgentEnabled: true,
+    
+    // Pre-prompting management
+    StandardPrePrompt: "Always adhere to ethical guidelines and refuse harmful requests.",
+}
+```
 
-## Deploy on Vercel
+### Monitoring Setup
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Guardian includes a Docker Compose configuration for quickly setting up the monitoring stack:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+# Start the monitoring stack
+guardian setup monitoring
+
+# View the setup in the browser
+open http://localhost:3000  # Grafana dashboard
+```
+
+## Security Rules and Governance
+
+Guardian comes with a set of predefined security rules that can be extended with your own custom rules:
+
+### Static Analysis Rules
+
+Guardian uses regex and pattern matching to identify potential security threats:
+
+```yaml
+# Example rules configuration (rules.yaml)
+rules:
+  - name: prompt-injection-basic
+    pattern: '\b(system prompt|ignore previous instructions|my previous instructions|my prior instructions)\b'
+    severity: high
+    description: "Basic prompt injection attempt"
+    
+  - name: scenario-nesting
+    pattern: 'pretend|imagine|role-play|simulation'
+    context_pattern: '(ignore|forget|disregard).*(instruction|prompt|rule)'
+    severity: medium
+    description: "Possible scenario nesting attack"
+```
+
+### NLP Analysis
+
+Guardian's NLP component analyzes conversations for:
+
+- **Intent classification**: Categorizing user intentions
+- **Sentiment analysis**: Detecting hostile or manipulative language
+- **Topic modeling**: Identifying sensitive or prohibited subjects
+- **Anomaly detection**: Flagging unusual interaction patterns
+
+## API Reference
+
+Guardian exposes several APIs for integration and extension:
+
+- **Middleware API**: For intercepting and monitoring AI requests
+- **Rules API**: For managing and customizing security rules
+- **Reporting API**: For accessing telemetry data and insights
+- **Governance API**: For responding to security incidents
+<!-- 
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for more information.
+
+## License
+
+Guardian is licensed under the [MIT License](LICENSE). -->
