@@ -85,33 +85,17 @@ Guardian is designed as a lightweight, embeddable middleware that integrates sea
 
 ### Installation
 
-```bash
-go get github.com/yourusername/guardian
-```
+Use the executible in dist or the upcoming js package.
 
 ### Basic Usage
 
 Add Guardian middleware to your application:
 
-```go
-import (
-    "github.com/yourusername/guardian"
-)
-
-func main() {
-    // Initialize Guardian with default configuration
-    g := guardian.New(guardian.Config{
-        ServiceName: "my-ai-app",
-        Environment: "production",
-    })
-    
-    // Register Guardian as middleware in your HTTP server
-    http.Handle("/v1/completions", g.Middleware(completionsHandler))
-    http.Handle("/v1/chat", g.Middleware(chatHandler))
-    
-    // Start the server
-    http.ListenAndServe(":8080", nil)
-}
+```js
+const guardian = new Guardian({ 
+  serviceName: 'mock-ai-app', 
+  debug: true 
+});
 ```
 
 ### Configuration Options
