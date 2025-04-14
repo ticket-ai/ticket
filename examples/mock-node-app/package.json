@@ -4,7 +4,9 @@
   "description": "Mock AI application for testing the Guardian platform",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
+    "start": "concurrently \"npm:start-llm\" \"npm:start-app\"",
+    "start-app": "node src/server.js",
+    "start-llm": "node src/mock-llm-server.js",
     "test": "node src/client-test.js",
     "dev": "nodemon src/server.js"
   },
@@ -19,9 +21,11 @@
   "license": "ISC",
   "dependencies": {
     "axios": "^1.6.7",
+    "concurrently": "^8.2.2",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "morgan": "^1.10.0",
+    "node-fetch": "^3.3.2",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
