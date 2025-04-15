@@ -20,7 +20,7 @@ const guardian = new Guardian({
 
 // Create Express app
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001; // Changed from 3000 to 3001 to avoid conflict with Grafana
 const MOCK_LLM_URL = process.env.MOCK_LLM_URL || 'http://localhost:3456';
 
 // Middleware
@@ -59,6 +59,17 @@ app.post('/v1/chat/completions', async (req, res) => {
       body: JSON.stringify({ messages, model, temperature })
     });
     
+    // Check if response is ok before trying to parse JSON
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.log(`Error response from mock LLM: ${response.status} - ${errorText}`);
+      return res.status(response.status).json({ 
+        error: 'Error from LLM API',
+        details: errorText
+      });
+    }
+    
+    // Only try to parse JSON if the response is ok
     const data = await response.json();
     res.json(data);
   } catch (error) {
@@ -87,6 +98,17 @@ app.post('/v1/completions', async (req, res) => {
       body: JSON.stringify({ prompt, model, temperature })
     });
     
+    // Check if response is ok before trying to parse JSON
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.log(`Error response from mock LLM: ${response.status} - ${errorText}`);
+      return res.status(response.status).json({ 
+        error: 'Error from LLM API',
+        details: errorText
+      });
+    }
+    
+    // Only try to parse JSON if the response is ok
     const data = await response.json();
     res.json(data);
   } catch (error) {

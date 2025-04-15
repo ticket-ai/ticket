@@ -2,8 +2,8 @@
 const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
 
-// Base API URL
-const API_URL = 'http://localhost:3000';
+// Base API URL - Updated to use port 3001
+const API_URL = 'http://localhost:3001';
 
 // Simulated users with different behaviors
 const users = [

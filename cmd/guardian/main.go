@@ -176,7 +176,7 @@ func main() {
 	}
 }
 
-// updateMetrics calculates and updates metrics for the dashboard
+// updateMetrics calculates and updates metrics for the dashboard and sends them to OpenTelemetry
 func updateMetrics(g *guardian.Guardian, m *metrics) {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -191,6 +191,12 @@ func updateMetrics(g *guardian.Guardian, m *metrics) {
 
 		// Update the dashboard
 		g.UpdateMessagesPerSecond(mps)
+
+		// Send metrics to OpenTelemetry
+		if g.Telemetry != nil {
+			ctx := context.Background()
+			g.Telemetry.UpdateMessagesPerSecond(ctx, mps)
+		}
 
 		// Reset the timer
 		m.lastCountTime = now

@@ -2,6 +2,7 @@
 package guardian
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -201,15 +202,38 @@ func (g *Guardian) GetDashboardURL() string {
 }
 
 // RecordCompletionRequest records a completion request for monitoring.
-// This updates the dashboard with the latest metrics.
+// This updates the dashboard with the latest metrics and sends data to OpenTelemetry.
 func (g *Guardian) RecordCompletionRequest(method, endpoint, status string, latencyMs int, ip string) {
 	// Update dashboard if enabled
 	if g.Dashboard != nil {
 		g.Dashboard.RecordRequest(method, endpoint, latencyMs, status, ip)
 	}
 
-	// Update other monitoring systems as needed
-	// ...
+	// Send telemetry if enabled
+	if g.Telemetry != nil && g.Config.MetricsEnabled {
+		ctx := context.Background()
+
+		// Create a telemetry event
+		event := telemetry.Event{
+			Endpoint:  endpoint,
+			IP:        ip,
+			Duration:  time.Duration(latencyMs) * time.Millisecond,
+			Score:     0.0, // Set appropriate score if available
+			Timestamp: time.Now(),
+			RequestData: map[string]interface{}{
+				"method": method,
+				"status": status,
+			},
+		}
+
+		// Record the event
+		if err := g.Telemetry.RecordEvent(ctx, event); err != nil {
+			// Just log the error but don't fail the request
+			if g.Config.Debug {
+				log.Printf("Failed to record telemetry event: %v", err)
+			}
+		}
+	}
 }
 
 // UpdateMessagesPerSecond updates the messages per second metric on the dashboard.
