@@ -8,8 +8,8 @@
 [![License](https://img.shields.io/github/license/yourusername/guardian)](LICENSE) -->
 
 ## Dev Notes for yall
-- Start LGTM (need to git clone first)
-./run-lgtm.sh
+- Start LGTM
+cd ~/guardian ./start-lgtm.sh
 - Build Executible: 
 cd ~/guardian && go build -o dist/guardian cmd/guardian/main.go
   The executible should have all buisness logic. It puts it in a dist folder that allows for the executible to be run in as a js package.
