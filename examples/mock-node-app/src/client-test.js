@@ -31,7 +31,7 @@ async function sendChatRequest(prompt, userId = 'test-user') {
         headers: { 
           'Content-Type': 'application/json',
           'User-Id': userId,
-          // 'X-Forwarded-For': '192.168.1.101'
+          'X-Forwarded-For': '192.168.1.101'
         }
       }
     );
