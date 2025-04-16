@@ -126,12 +126,7 @@ func New(config Config) (*Guardian, error) {
 	})
 
 	// Initialize middleware component
-	middlewareInstance := middleware.New(middleware.Config{
-		Analyzer:          analyzerInstance,
-		Telemetry:         telemetryClient,
-		Monitor:           monitorInstance,
-		StandardPrePrompt: config.StandardPrePrompt,
-	})
+	middlewareInstance := middleware.NewMiddleware(config.Debug)
 
 	// Initialize dashboard component if enabled
 	var dashboardInstance *dashboard.Dashboard

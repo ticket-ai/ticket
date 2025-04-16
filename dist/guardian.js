@@ -19,7 +19,7 @@ const DEFAULT_CONFIG = {
   environment: 'development',
   prePrompt: "Always adhere to ethical guidelines and refuse harmful requests.",
   debug: false,
-  autoStart: true
+  autoStart: true,
 };
 
 class Guardian {
@@ -73,6 +73,10 @@ class Guardian {
           args.push(`-pre-prompt=${this.config.prePrompt}`);
         }
         
+        if (this.config.debug) {
+          args.push('-debug=true');
+        }
+        
         // Spawn the Guardian process
         this.process = spawn(this.binaryPath, args, {
           stdio: this.config.debug ? 'inherit' : 'pipe'
@@ -90,18 +94,18 @@ class Guardian {
           this.ready = false;
         });
         
-        if (!this.config.debug) {
+        if (!this.config.debug && this.process.stdout && this.process.stderr) {
           // Log stdout/stderr if not in debug mode
-          this.process.stdout?.on('data', (data) => {
+          this.process.stdout.on('data', (data) => {
             this.log(`Guardian: ${data.toString().trim()}`);
           });
           
-          this.process.stderr?.on('data', (data) => {
+          this.process.stderr.on('data', (data) => {
             this.log(`Guardian: ${data.toString().trim()}`);
           });
         }
         
-        // Patch network APIs to route through Guardian
+        // Patch network APIs to route through Guardian with transparent forwarding
         this._patchNetworkAPIs();
         
         // Wait for server to be ready
@@ -224,11 +228,24 @@ class Guardian {
       // Check if this is an AI API call that should be routed through Guardian
       if (self._isAIEndpoint(url)) {
         try {
-          const proxyUrl = new URL(url.toString());
-          proxyUrl.host = `localhost:${self.port}`;
+          // Ensure we preserve the original destination for internal forwarding
+          const originalUrl = url.toString();
+          
+          // Create modified headers to include original destination
+          const modifiedOptions = { ...options };
+          modifiedOptions.headers = { ...(options.headers || {}) };
+          
+          // Add the original destination header if we're redirecting
+          modifiedOptions.headers['X-Guardian-Original-Destination'] = originalUrl;
           
           self.log(`Routing AI API call through Guardian: ${url}`);
-          return originalFetch(proxyUrl.toString(), options);
+          
+          // Route to Guardian proxy
+          const proxyUrl = new URL('http://localhost:' + self.port);
+          proxyUrl.pathname = new URL(url).pathname;
+          proxyUrl.search = new URL(url).search;
+          
+          return originalFetch(proxyUrl.toString(), modifiedOptions);
         } catch (err) {
           self.log(`Error routing through Guardian: ${err.message}`);
           return originalFetch(url, options);
@@ -252,30 +269,78 @@ class Guardian {
       if (self._isAIEndpointFromOptions(options)) {
         self.log(`Routing HTTP AI API call through Guardian`);
         
+        // Save original options for forwarding
+        let originalDestination = '';
+        
+        // Extract original destination
+        if (typeof options === 'string') {
+          originalDestination = options;
+        } else if (options instanceof URL) {
+          originalDestination = options.toString();
+        } else {
+          const protocol = options.protocol || 'http:';
+          const host = options.host || options.hostname || 'localhost';
+          const port = options.port ? `:${options.port}` : '';
+          const path = options.path || '/';
+          originalDestination = `${protocol}//${host}${port}${path}`;
+        }
+        
+        self.log(`Original destination: ${originalDestination}`);
+        
         // Modify options to go through Guardian proxy
         if (typeof options === 'string' || options instanceof URL) {
+          const originalUrl = options;
           options = new URL(options.toString());
           options.host = 'localhost';
           options.hostname = 'localhost';
           options.port = self.port;
+          options.headers = options.headers || {};
+          options.headers['X-Guardian-Original-Destination'] = originalUrl.toString();
         } else {
+          // Clone options to avoid modifying the original
+          const originalOpts = { ...options };
+          
+          // Add header to the new options
           options = { ...options };
+          if (!options.headers) options.headers = {};
+          options.headers['X-Guardian-Original-Destination'] = originalDestination;
+          
+          // Modify to go through Guardian
           options.host = 'localhost';
           options.hostname = 'localhost';
           options.port = self.port;
         }
+        
+        self.log(`Forwarding through Guardian proxy: localhost:${self.port}`);
       }
       
       return self.originalHttpRequest.call(http, options, callback);
     };
     
-    // Patch HTTPS
+    // Similar approach for HTTPS
     https.request = function guardianHttpsRequest(options, callback) {
       if (self._isAIEndpointFromOptions(options)) {
         self.log(`Routing HTTPS AI API call through Guardian`);
         
+        // Save original options for forwarding
+        let originalDestination = '';
+        
+        // Extract original destination
+        if (typeof options === 'string') {
+          originalDestination = options;
+        } else if (options instanceof URL) {
+          originalDestination = options.toString();
+        } else {
+          const protocol = 'https:';
+          const host = options.host || options.hostname || 'localhost';
+          const port = options.port ? `:${options.port}` : '';
+          const path = options.path || '/';
+          originalDestination = `${protocol}//${host}${port}${path}`;
+        }
+        
+        self.log(`Original destination: ${originalDestination}`);
+        
         // For HTTPS, we have to convert to using HTTP to the Guardian proxy
-        // Create new options for HTTP
         let newOptions;
         if (typeof options === 'string' || options instanceof URL) {
           const url = new URL(options.toString());
@@ -286,18 +351,27 @@ class Guardian {
             port: self.port,
             path: url.pathname + url.search,
             method: 'POST',
-            headers: {'Content-Type': 'application/json'}
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Guardian-Original-Destination': originalDestination
+            }
           };
         } else {
+          // Clone headers and add original destination
+          const headers = { ...(options.headers || {}) };
+          headers['X-Guardian-Original-Destination'] = originalDestination;
+          
           newOptions = {
             ...options,
             protocol: 'http:',
             host: 'localhost',
             hostname: 'localhost',
-            port: self.port
+            port: self.port,
+            headers
           };
         }
         
+        self.log(`Forwarding through Guardian proxy: localhost:${self.port}`);
         return self.originalHttpRequest.call(http, newOptions, callback);
       }
       
@@ -409,6 +483,13 @@ class Guardian {
       }
       
       self.log(`Express middleware handling AI endpoint: ${req.path}`);
+      
+      // Store the original destination
+      const protocol = req.protocol;
+      const host = req.headers.host;
+      const path = req.originalUrl || req.url;
+      const originalDestination = `${protocol}://${host}${path}`;
+      req.headers['X-Guardian-Original-Destination'] = originalDestination;
       
       // Proxy the request to Guardian
       const proxyReq = http.request({

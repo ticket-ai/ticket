@@ -6,9 +6,11 @@ const path = require('path');
 // Import Guardian with minimal configuration
 const guardianPath = path.resolve(__dirname, '../../../dist/guardian.js');
 console.log('Guardian path:', guardianPath);
-// TEMPORARILY BYPASSING GUARDIAN FOR TESTING
-// const Guardian = require(guardianPath);
-// const guardian = new Guardian({ serviceName: 'mock-ai-app', debug: true });
+const Guardian = require(guardianPath);
+const guardian = new Guardian({ 
+  serviceName: 'mock-ai-app', 
+  debug: true 
+});
 
 // Express setup
 const app = express();
@@ -21,25 +23,19 @@ app.use(morgan('dev'));
 
 // API Chat Endpoint (what client-test.js calls)
 app.post('/api/chat', async (req, res) => {
-  console.log('Received request to /api/chat');
+  console.log('[Guardian] Routing HTTP AI API call through Guardian');
   
   try {
     // Make direct HTTP request to mock LLM server
     const llmURL = `${MOCK_LLM_URL}/v1/chat/completions`;
     console.log(`Forwarding request to: ${llmURL}`);
     
-    // Test with raw Axios request to eliminate Guardian interference
     const response = await axios({
       method: 'post',
       url: llmURL,
       data: req.body,
       headers: {
         'Content-Type': 'application/json'
-      },
-      // Logging for debugging
-      validateStatus: function (status) {
-        console.log(`Response status: ${status}`);
-        return status < 500; // Accept all status codes less than 500
       }
     });
     
@@ -66,5 +62,4 @@ app.get('/admin/blocked-ips', (req, res) => res.json({ blockedIPs: [] }));
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   console.log(`Using Mock LLM at ${MOCK_LLM_URL}`);
-  console.log(`GUARDIAN BYPASSED FOR TESTING`);
 });
