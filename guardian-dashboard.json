@@ -623,6 +623,104 @@
           "refId": "A"
         }
       ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Total number of flagged requests based on rules, broken down by rule name, severity, endpoint, client IP, and user ID.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 25
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "sum"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(guardian_flagged_requests_total{service_name=\"$service_name\", environment=\"$environment\"}[$__range])) by (url_path, client_address, enduser_id, guardian_rule_0_name, guardian_rule_0_severity)",
+          "legendFormat": "{{url_path}} - {{client_address}} - {{enduser_id}} (Rule: {{guardian_rule_0_name}}, Severity: {{guardian_rule_0_severity}})",
+          "range": true,
+          "refId": "A",
+          "instant": false
+        }
+      ],
+      "title": "Flagged Requests (in range)",
+      "type": "timeseries"
     }
   ],
   "refresh": "5s",
@@ -707,6 +805,6 @@
   "timezone": "",
   "title": "Guardian AI Monitoring (Otel)",
   "uid": "guardian-otel",
-  "version": 2,
+  "version": 3,
   "weekStart": ""
 }

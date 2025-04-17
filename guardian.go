@@ -28,6 +28,7 @@ type Config struct {
 	// Security features
 	NLPAnalysisEnabled  bool
 	StaticAnalysisRules []string
+	RulesFile           string // Path to the rules YAML file
 
 	// Governance options
 	AutoBlockThreshold float64
@@ -100,7 +101,7 @@ func New(config Config) (*Guardian, error) {
 	// Initialize analyzer component
 	analyzerInstance, err := analyzer.New(analyzer.Config{
 		NLPEnabled:         config.NLPAnalysisEnabled,
-		StaticRules:        config.StaticAnalysisRules,
+		RulesFile:          config.RulesFile, // Pass the rules file path
 		AutoBlockThreshold: config.AutoBlockThreshold,
 	})
 	if err != nil {

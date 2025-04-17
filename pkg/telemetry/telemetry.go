@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/rohanadwankar/guardian/pkg/analyzer" // Import analyzer for Rule type
+
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -56,6 +58,7 @@ type Event struct {
 	EstimatedCost float64
 	RequestData   map[string]interface{}
 	ResponseData  map[string]interface{}
+	MatchedRules  []analyzer.Rule // Added field to store matched rules
 }
 
 // Client handles all telemetry operations.
@@ -73,6 +76,7 @@ type Client struct {
 	inputTokensCounter   metric.Int64Counter
 	outputTokensCounter  metric.Int64Counter
 	estimatedCostCounter metric.Float64Counter
+	flaggedCounter       metric.Int64Counter // Added counter for flagged requests
 }
 
 // New creates a new telemetry client with OpenTelemetry instrumentation.
@@ -149,7 +153,7 @@ func (c *Client) setupMetrics(res *resource.Resource) error {
 	)
 
 	// Initialize the metrics with Prometheus-compatible naming (using underscores instead of dots)
-	var err1, err2, err3, err4, err5, err6 error
+	var err1, err2, err3, err4, err5, err6, err7 error
 	c.requestCounter, err1 = meter.Int64Counter(
 		"guardian_requests_total",
 		metric.WithDescription("Total number of AI requests processed"),
@@ -184,8 +188,13 @@ func (c *Client) setupMetrics(res *resource.Resource) error {
 		metric.WithUnit("USD"),
 	)
 
+	c.flaggedCounter, err7 = meter.Int64Counter(
+		"guardian_flagged_requests_total",
+		metric.WithDescription("Total number of AI requests flagged by rules"),
+	)
+
 	// Check for errors in creating instruments
-	for _, err := range []error{err1, err2, err3, err4, err5, err6} {
+	for _, err := range []error{err1, err2, err3, err4, err5, err6, err7} {
 		if err != nil {
 			return fmt.Errorf("failed to create metric instruments: %w", err)
 		}
@@ -269,7 +278,20 @@ func (c *Client) RecordEvent(ctx context.Context, event Event) error {
 		attribute.Int("guardian.tokens.input", event.InputTokens),
 		attribute.Int("guardian.tokens.output", event.OutputTokens),
 		attribute.Float64("guardian.estimated_cost", event.EstimatedCost),
+		attribute.Bool("guardian.blocked", event.Blocked),         // Added blocked status attribute
+		attribute.Float64("guardian.analysis_score", event.Score), // Added analysis score attribute
 	}
+
+	// Add attributes for matched rules
+	ruleAttrs := []attribute.KeyValue{}
+	for i, rule := range event.MatchedRules {
+		prefix := fmt.Sprintf("guardian.rule.%d.", i)
+		ruleAttrs = append(ruleAttrs,
+			attribute.String(prefix+"name", rule.Name),
+			attribute.String(prefix+"severity", rule.Severity),
+		)
+	}
+	attrs = append(attrs, ruleAttrs...)
 
 	// Add UserID if available
 	if event.UserID != "" {
@@ -291,9 +313,17 @@ func (c *Client) RecordEvent(ctx context.Context, event Event) error {
 		c.estimatedCostCounter.Add(ctx, event.EstimatedCost, metric.WithAttributes(attrs...))
 
 		// If this is a blocked request, increment the counter
-		if event.Score >= 0.85 {
-			blockedAttrs := append(attrs, attribute.Float64("score", event.Score))
+		if event.Blocked {
+			// Blocked counter uses the base attributes + score
+			blockedAttrs := append(attrs, attribute.Float64("guardian.analysis_score", event.Score))
 			c.blockedCounter.Add(ctx, 1, metric.WithAttributes(blockedAttrs...))
+		}
+
+		// If the request was flagged (matched any rules), increment the flagged counter
+		if len(event.MatchedRules) > 0 {
+			// Flagged counter uses base attributes + rule attributes
+			flaggedAttrs := attrs // Already contains rule attributes
+			c.flaggedCounter.Add(ctx, 1, metric.WithAttributes(flaggedAttrs...))
 		}
 	}
 
