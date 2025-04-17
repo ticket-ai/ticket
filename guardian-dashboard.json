@@ -24,7 +24,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 5,
+  "id": null,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -33,7 +33,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Current rate of requests per second",
+      "description": "Current rate of requests per second, broken down by endpoint, client IP, and user ID.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -46,7 +46,7 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 20,
+            "fillOpacity": 10,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -54,7 +54,7 @@
               "viz": false
             },
             "lineInterpolation": "smooth",
-            "lineWidth": 3,
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
@@ -76,10 +76,6 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           },
@@ -96,13 +92,17 @@
       "id": 2,
       "options": {
         "legend": {
-          "calcs": ["mean", "max"],
-          "displayMode": "list",
+          "calcs": [
+            "mean",
+            "max",
+            "sum"
+          ],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
+          "mode": "multi",
           "sort": "none"
         }
       },
@@ -113,8 +113,8 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "guardian_requests_per_second",
-          "legendFormat": "{{service}} - {{environment}}",
+          "expr": "sum(rate(guardian_requests_total{service_name=\"$service_name\", environment=\"$environment\"}[1m])) by (url_path, client_address, enduser_id)",
+          "legendFormat": "{{url_path}} - {{client_address}} - {{enduser_id}}",
           "range": true,
           "refId": "A"
         }
@@ -127,7 +127,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Total number of requests processed",
+      "description": "Total number of requests processed, broken down by endpoint, client IP, and user ID.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -140,7 +140,7 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 20,
+            "fillOpacity": 10,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -148,7 +148,7 @@
               "viz": false
             },
             "lineInterpolation": "smooth",
-            "lineWidth": 3,
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
@@ -186,13 +186,16 @@
       "id": 3,
       "options": {
         "legend": {
-          "calcs": ["lastNotNull", "sum"],
+          "calcs": [
+            "lastNotNull",
+            "sum"
+          ],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
+          "mode": "multi",
           "sort": "none"
         }
       },
@@ -203,13 +206,13 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "guardian_requests_total",
-          "legendFormat": "{{endpoint}}",
+          "expr": "sum(guardian_requests_total{service_name=\"$service_name\", environment=\"$environment\"}) by (url_path, client_address, enduser_id)",
+          "legendFormat": "{{url_path}} - {{client_address}} - {{enduser_id}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Total Requests by Endpoint",
+      "title": "Total Requests",
       "type": "timeseries"
     },
     {
@@ -217,7 +220,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Request latency distribution",
+      "description": "Request latency distribution (p50, p95) by endpoint.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -230,7 +233,7 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 20,
+            "fillOpacity": 10,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -276,14 +279,17 @@
       "id": 4,
       "options": {
         "legend": {
-          "calcs": ["mean", "max"],
+          "calcs": [
+            "mean",
+            "max"
+          ],
           "displayMode": "table",
           "placement": "right",
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
-          "sort": "none"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "targets": [
@@ -293,8 +299,8 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum(rate(guardian_request_duration_seconds_bucket[1m])) by (le, endpoint))",
-          "legendFormat": "p95 - {{endpoint}}",
+          "expr": "histogram_quantile(0.95, sum(rate(guardian_request_duration_seconds_bucket{service_name=\"$service_name\", environment=\"$environment\"}[1m])) by (le, url_path, client_address, enduser_id))",
+          "legendFormat": "p95 - {{url_path}} - {{client_address}} - {{enduser_id}}",
           "range": true,
           "refId": "A"
         },
@@ -304,14 +310,14 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.50, sum(rate(guardian_request_duration_seconds_bucket[1m])) by (le, endpoint))",
+          "expr": "histogram_quantile(0.50, sum(rate(guardian_request_duration_seconds_bucket{service_name=\"$service_name\", environment=\"$environment\"}[1m])) by (le, url_path, client_address, enduser_id))",
           "hide": false,
-          "legendFormat": "p50 - {{endpoint}}",
+          "legendFormat": "p50 - {{url_path}} - {{client_address}} - {{enduser_id}}",
           "range": true,
           "refId": "B"
         }
       ],
-      "title": "Request Latency (50th/95th percentile)",
+      "title": "Request Latency (p50/p95)",
       "type": "timeseries"
     },
     {
@@ -319,7 +325,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Number of blocked requests",
+      "description": "Total number of blocked requests, broken down by endpoint, client IP, and user ID.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -332,7 +338,7 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 20,
+            "fillOpacity": 10,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -340,7 +346,7 @@
               "viz": false
             },
             "lineInterpolation": "smooth",
-            "lineWidth": 3,
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
@@ -360,8 +366,12 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "yellow",
                 "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
               }
             ]
           },
@@ -378,13 +388,16 @@
       "id": 5,
       "options": {
         "legend": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull",
+            "sum"
+          ],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
+          "mode": "multi",
           "sort": "none"
         }
       },
@@ -395,8 +408,8 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "guardian_requests_blocked_total",
-          "legendFormat": "{{score}}",
+          "expr": "sum(guardian_blocked_requests_total{service_name=\"$service_name\", environment=\"$environment\"}) by (url_path, client_address, enduser_id, guardian_analysis_score)",
+          "legendFormat": "{{url_path}} - {{client_address}} - {{enduser_id}} (Score: {{guardian_analysis_score}})",
           "range": true,
           "refId": "A"
         }
@@ -411,10 +424,73 @@
   "tags": [
     "guardian",
     "ai",
-    "monitoring"
+    "monitoring",
+    "otel"
   ],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "prometheus",
+          "value": "prometheus"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "queryValue": "",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "datasource"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(guardian_requests_total, service_name)",
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "service_name",
+        "options": [],
+        "query": {
+          "query": "label_values(guardian_requests_total, service_name)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(guardian_requests_total, environment)",
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "environment",
+        "options": [],
+        "query": {
+          "query": "label_values(guardian_requests_total, environment)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      }
+    ]
   },
   "time": {
     "from": "now-15m",
@@ -422,8 +498,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Guardian AI Monitoring",
-  "uid": "guardian",
+  "title": "Guardian AI Monitoring (Otel)",
+  "uid": "guardian-otel",
   "version": 1,
   "weekStart": ""
 }

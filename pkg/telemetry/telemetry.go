@@ -32,15 +32,19 @@ type Config struct {
 
 // Event represents a telemetry event to be recorded.
 type Event struct {
-	UserID       string
+	Timestamp    time.Time
 	IP           string
+	UserID       string
 	Endpoint     string
-	RequestData  map[string]interface{}
-	ResponseData map[string]interface{}
+	Method       string
+	Destination  string
+	StatusCode   int
 	Duration     time.Duration
 	Score        float64
 	Reasons      []string
-	Timestamp    time.Time
+	Blocked      bool
+	RequestData  map[string]interface{}
+	ResponseData map[string]interface{}
 }
 
 // Client handles all telemetry operations.
@@ -235,6 +239,11 @@ func (c *Client) RecordEvent(ctx context.Context, event Event) error {
 		attribute.String("endpoint", event.Endpoint),
 		attribute.String("user_id", event.UserID),
 		attribute.String("ip", event.IP),
+	}
+
+	// Add UserID if available
+	if event.UserID != "" {
+		attrs = append(attrs, semconv.EnduserIDKey.String(event.UserID))
 	}
 
 	// Record metrics if enabled
