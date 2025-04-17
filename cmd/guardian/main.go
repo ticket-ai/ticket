@@ -187,18 +187,13 @@ func updateMetrics(g *guardian.Guardian, m *metrics) {
 		elapsed := now.Sub(m.lastCountTime).Seconds()
 		count := atomic.SwapUint64(&m.requestsLastSecond, 0)
 
-		mps := float64(count) / elapsed
-
-		// Update the dashboard
-		g.UpdateMessagesPerSecond(mps)
-
-		// Send metrics to OpenTelemetry
-		if g.Telemetry != nil {
-			ctx := context.Background()
-			g.Telemetry.UpdateMessagesPerSecond(ctx, mps)
+		mps := 0.0
+		if elapsed > 0 {
+			mps = float64(count) / elapsed
 		}
 
 		// Reset the timer
 		m.lastCountTime = now
+		_ = mps // Use mps to avoid unused variable error if needed, or remove calculation
 	}
 }

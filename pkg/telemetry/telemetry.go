@@ -8,6 +8,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/metric"
@@ -21,6 +22,13 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+// --- Placeholder Costs (per 1000 tokens) ---
+// These should ideally be configurable or fetched dynamically based on the model used.
+const (
+	costPer1kInputTokens  = 0.001 // Example: $0.001 / 1k input tokens
+	costPer1kOutputTokens = 0.002 // Example: $0.002 / 1k output tokens
+)
+
 // Config holds configuration options for the telemetry client.
 type Config struct {
 	ServiceName    string
@@ -32,36 +40,39 @@ type Config struct {
 
 // Event represents a telemetry event to be recorded.
 type Event struct {
-	Timestamp    time.Time
-	IP           string
-	UserID       string
-	Endpoint     string
-	Method       string
-	Destination  string
-	StatusCode   int
-	Duration     time.Duration
-	Score        float64
-	Reasons      []string
-	Blocked      bool
-	RequestData  map[string]interface{}
-	ResponseData map[string]interface{}
+	Timestamp     time.Time
+	IP            string
+	UserID        string
+	Endpoint      string
+	Method        string
+	Destination   string
+	StatusCode    int
+	Duration      time.Duration
+	Score         float64
+	Reasons       []string
+	Blocked       bool
+	InputTokens   int
+	OutputTokens  int
+	EstimatedCost float64
+	RequestData   map[string]interface{}
+	ResponseData  map[string]interface{}
 }
 
 // Client handles all telemetry operations.
 type Client struct {
-	config         Config
-	meter          metric.Meter
-	tracer         trace.Tracer
-	metricExporter sdkmetric.Exporter
-	traceExporter  sdktrace.SpanExporter
-	meterProvider  *sdkmetric.MeterProvider
-	tracerProvider *sdktrace.TracerProvider
-
-	// Counters and gauges
-	requestCounter    metric.Int64Counter
-	blockedCounter    metric.Int64Counter
-	latencyHistogram  metric.Float64Histogram
-	requestsPerSecond metric.Float64UpDownCounter
+	config               Config
+	meter                metric.Meter
+	tracer               trace.Tracer
+	metricExporter       sdkmetric.Exporter
+	traceExporter        sdktrace.SpanExporter
+	meterProvider        *sdkmetric.MeterProvider
+	tracerProvider       *sdktrace.TracerProvider
+	requestCounter       metric.Int64Counter
+	blockedCounter       metric.Int64Counter
+	latencyHistogram     metric.Float64Histogram
+	inputTokensCounter   metric.Int64Counter
+	outputTokensCounter  metric.Int64Counter
+	estimatedCostCounter metric.Float64Counter
 }
 
 // New creates a new telemetry client with OpenTelemetry instrumentation.
@@ -138,7 +149,7 @@ func (c *Client) setupMetrics(res *resource.Resource) error {
 	)
 
 	// Initialize the metrics with Prometheus-compatible naming (using underscores instead of dots)
-	var err1, err2, err3, err4 error
+	var err1, err2, err3, err4, err5, err6 error
 	c.requestCounter, err1 = meter.Int64Counter(
 		"guardian_requests_total",
 		metric.WithDescription("Total number of AI requests processed"),
@@ -155,14 +166,26 @@ func (c *Client) setupMetrics(res *resource.Resource) error {
 		metric.WithUnit("s"),
 	)
 
-	c.requestsPerSecond, err4 = meter.Float64UpDownCounter(
-		"guardian_requests_per_second",
-		metric.WithDescription("Number of AI requests per second"),
-		metric.WithUnit("{requests}"),
+	c.inputTokensCounter, err4 = meter.Int64Counter(
+		"guardian_input_tokens_total",
+		metric.WithDescription("Total number of estimated input tokens processed"),
+		metric.WithUnit("{token}"),
+	)
+
+	c.outputTokensCounter, err5 = meter.Int64Counter(
+		"guardian_output_tokens_total",
+		metric.WithDescription("Total number of estimated output tokens generated"),
+		metric.WithUnit("{token}"),
+	)
+
+	c.estimatedCostCounter, err6 = meter.Float64Counter(
+		"guardian_estimated_cost_total",
+		metric.WithDescription("Estimated cost of AI requests based on token usage"),
+		metric.WithUnit("USD"),
 	)
 
 	// Check for errors in creating instruments
-	for _, err := range []error{err1, err2, err3, err4} {
+	for _, err := range []error{err1, err2, err3, err4, err5, err6} {
 		if err != nil {
 			return fmt.Errorf("failed to create metric instruments: %w", err)
 		}
@@ -234,11 +257,18 @@ func (c *Client) RecordEvent(ctx context.Context, event Event) error {
 		return nil
 	}
 
+	// --- Calculate Estimated Cost ---
+	event.EstimatedCost = (float64(event.InputTokens)/1000.0)*costPer1kInputTokens +
+		(float64(event.OutputTokens)/1000.0)*costPer1kOutputTokens
+
 	// Common attributes for the event
 	attrs := []attribute.KeyValue{
 		attribute.String("endpoint", event.Endpoint),
 		attribute.String("user_id", event.UserID),
 		attribute.String("ip", event.IP),
+		attribute.Int("guardian.tokens.input", event.InputTokens),
+		attribute.Int("guardian.tokens.output", event.OutputTokens),
+		attribute.Float64("guardian.estimated_cost", event.EstimatedCost),
 	}
 
 	// Add UserID if available
@@ -254,6 +284,11 @@ func (c *Client) RecordEvent(ctx context.Context, event Event) error {
 		// Record request latency in seconds (convert from milliseconds)
 		durationSeconds := float64(event.Duration.Milliseconds()) / 1000.0
 		c.latencyHistogram.Record(ctx, durationSeconds, metric.WithAttributes(attrs...))
+
+		// Record token counts and cost
+		c.inputTokensCounter.Add(ctx, int64(event.InputTokens), metric.WithAttributes(attrs...))
+		c.outputTokensCounter.Add(ctx, int64(event.OutputTokens), metric.WithAttributes(attrs...))
+		c.estimatedCostCounter.Add(ctx, event.EstimatedCost, metric.WithAttributes(attrs...))
 
 		// If this is a blocked request, increment the counter
 		if event.Score >= 0.85 {
@@ -275,41 +310,18 @@ func (c *Client) RecordEvent(ctx context.Context, event Event) error {
 			span.SetAttributes(attribute.String(fmt.Sprintf("reason.%d", i), reason))
 		}
 
+		if event.Blocked {
+			span.SetStatus(codes.Error, "Request blocked by Guardian")
+		} else if event.StatusCode >= 400 {
+			span.SetStatus(codes.Error, fmt.Sprintf("HTTP Error: %d", event.StatusCode))
+		} else {
+			span.SetStatus(codes.Ok, "Success")
+		}
+
 		span.End()
 	}
 
 	return nil
-}
-
-// UpdateMessagesPerSecond updates the messages per second metric.
-func (c *Client) UpdateMessagesPerSecond(ctx context.Context, mps float64) {
-	if !c.config.MetricsEnabled || c.meter == nil {
-		return
-	}
-
-	// Record the current rate
-	c.requestsPerSecond.Add(ctx, mps,
-		metric.WithAttributes(
-			attribute.String("service", c.config.ServiceName),
-			attribute.String("environment", c.config.Environment),
-		))
-}
-
-// StartSpan starts a new tracing span.
-func (c *Client) StartSpan(ctx context.Context, name string) (context.Context, trace.Span) {
-	if !c.config.TracingEnabled || c.tracer == nil {
-		// Return a no-op span if tracing is not enabled
-		return ctx, trace.SpanFromContext(ctx)
-	}
-
-	return c.tracer.Start(ctx, name)
-}
-
-// EndSpan ends a tracing span.
-func (c *Client) EndSpan(span trace.Span) {
-	if span != nil {
-		span.End()
-	}
 }
 
 // Shutdown gracefully shuts down the telemetry client.

@@ -72,7 +72,7 @@ func (m *Middleware) HTTPHandler(next http.Handler) http.Handler {
 		}
 		userID := r.Header.Get("User-Id")
 
-		// Read request body for analysis
+		// Read request body for analysis and token counting
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			m.log("Error reading request body: %v", err)
@@ -82,10 +82,13 @@ func (m *Middleware) HTTPHandler(next http.Handler) http.Handler {
 		r.Body.Close()                                    // Close original body
 		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes)) // Restore body for proxy
 
+		requestBodyStr := string(bodyBytes)
+		inputTokens := estimateTokens(requestBodyStr) // Estimate input tokens
+
 		// --- Analysis --- (Example: Analyze request body)
 		analysisResult := analyzer.Result{Score: 0.0} // Default safe score
 		if m.analyzer != nil {
-			analysisResult = m.analyzer.AnalyzeText(string(bodyBytes))
+			analysisResult = m.analyzer.AnalyzeText(requestBodyStr)
 			m.log("Analysis score for %s: %.2f", r.URL.Path, analysisResult.Score)
 		}
 
@@ -101,7 +104,8 @@ func (m *Middleware) HTTPHandler(next http.Handler) http.Handler {
 			Score:       analysisResult.Score,
 			Reasons:     analysisResult.Reasons,
 			Blocked:     shouldBlock,
-			RequestData: map[string]interface{}{"body": string(bodyBytes)}, // Example
+			InputTokens: inputTokens, // Add input tokens
+			// RequestData: map[string]interface{}{"body": requestBodyStr}, // Optionally include full body
 		}
 
 		// --- Blocking --- (If analysis determines blocking)
@@ -113,6 +117,9 @@ func (m *Middleware) HTTPHandler(next http.Handler) http.Handler {
 			// Record blocked event
 			event.StatusCode = http.StatusForbidden
 			event.Duration = time.Since(startTime)
+			event.OutputTokens = 0    // No output tokens for blocked requests
+			event.EstimatedCost = 0.0 // No cost for blocked requests
+
 			if m.telemetry != nil {
 				m.telemetry.RecordEvent(ctx, event)
 			}
@@ -143,7 +150,7 @@ func (m *Middleware) HTTPHandler(next http.Handler) http.Handler {
 			m.log("Forwarding %s to: %s", req.Method, req.URL.String())
 		}
 
-		// Wrap response writer to capture status code
+		// Wrap response writer to capture status code and body
 		rw := newResponseWriter(w)
 
 		// Call the proxy handler
@@ -152,13 +159,18 @@ func (m *Middleware) HTTPHandler(next http.Handler) http.Handler {
 		// --- Telemetry Recording --- (After proxying)
 		event.StatusCode = rw.statusCode
 		event.Duration = time.Since(startTime)
-		// event.ResponseData = map[string]interface{}{"body": rw.body.String()} // Optionally capture response body
+
+		responseBodyStr := rw.body.String()
+		event.OutputTokens = estimateTokens(responseBodyStr) // Estimate output tokens
+		// event.ResponseData = map[string]interface{}{"body": responseBodyStr} // Optionally include full body
 
 		if m.telemetry != nil {
+			// Cost calculation happens within RecordEvent
 			m.telemetry.RecordEvent(ctx, event)
 		}
 
-		m.log("Finished %s %s -> %s | Status: %d | Latency: %s", r.Method, r.URL.Path, targetURL.String(), rw.statusCode, event.Duration)
+		m.log("Finished %s %s -> %s | Status: %d | Latency: %s | InTokens: %d | OutTokens: %d",
+			r.Method, r.URL.Path, targetURL.String(), rw.statusCode, event.Duration, event.InputTokens, event.OutputTokens)
 	})
 }
 
@@ -168,20 +180,38 @@ func isAIEndpoint(path string) bool {
 	return strings.Contains(path, "/v1/completions") ||
 		strings.Contains(path, "/v1/chat/completions") ||
 		strings.Contains(path, "/completions") ||
-		strings.Contains(path, "/chat/completions")
+		strings.Contains(path, "/chat/completions") ||
+		strings.Contains(path, "/generate")
 }
 
-// responseWriter is a wrapper around http.ResponseWriter to capture status code
+// responseWriter is a wrapper around http.ResponseWriter to capture status code and body
 type responseWriter struct {
 	http.ResponseWriter
 	statusCode int
+	body       *bytes.Buffer // Buffer to capture response body
 }
 
 func newResponseWriter(w http.ResponseWriter) *responseWriter {
-	return &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+	return &responseWriter{
+		ResponseWriter: w,
+		statusCode:     http.StatusOK,
+		body:           new(bytes.Buffer), // Initialize the buffer
+	}
 }
 
 func (rw *responseWriter) WriteHeader(code int) {
 	rw.statusCode = code
 	rw.ResponseWriter.WriteHeader(code)
+}
+
+func (rw *responseWriter) Write(b []byte) (int, error) {
+	rw.body.Write(b)                  // Write to our buffer
+	return rw.ResponseWriter.Write(b) // Write to the original response writer
+}
+
+// estimateTokens provides a basic word count as a proxy for token count
+func estimateTokens(text string) int {
+	// Very basic estimation: count words separated by spaces.
+	// For more accuracy, consider a proper tokenizer library (e.g., tiktoken).
+	return len(strings.Fields(text))
 }

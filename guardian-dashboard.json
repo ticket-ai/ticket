@@ -206,13 +206,14 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(guardian_requests_total{service_name=\"$service_name\", environment=\"$environment\"}) by (url_path, client_address, enduser_id)",
+          "expr": "sum(increase(guardian_requests_total{service_name=\"$service_name\", environment=\"$environment\"}[$__range])) by (url_path, client_address, enduser_id)",
           "legendFormat": "{{url_path}} - {{client_address}} - {{enduser_id}}",
           "range": true,
-          "refId": "A"
+          "refId": "A",
+          "instant": false
         }
       ],
-      "title": "Total Requests",
+      "title": "Total Requests (in range)",
       "type": "timeseries"
     },
     {
@@ -408,14 +409,290 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(guardian_blocked_requests_total{service_name=\"$service_name\", environment=\"$environment\"}) by (url_path, client_address, enduser_id, guardian_analysis_score)",
+          "expr": "sum(increase(guardian_blocked_requests_total{service_name=\"$service_name\", environment=\"$environment\"}[$__range])) by (url_path, client_address, enduser_id, guardian_analysis_score)",
           "legendFormat": "{{url_path}} - {{client_address}} - {{enduser_id}} (Score: {{guardian_analysis_score}})",
+          "range": true,
+          "refId": "A",
+          "instant": false
+        }
+      ],
+      "title": "Blocked Requests (in range)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "title": "Request Distribution by Client IP",
+      "type": "piechart",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 17
+      },
+      "id": 6,
+      "options": {
+        "displayLabels": [
+          "name",
+          "percent"
+        ],
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (client_address) (increase(guardian_requests_total{service_name=\"$service_name\", environment=\"$environment\"}[$__range]))",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "{{client_address}}",
+          "range": false,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "title": "Request Distribution by Endpoint",
+      "type": "piechart",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 6,
+        "y": 17
+      },
+      "id": 7,
+      "options": {
+        "displayLabels": [
+          "name",
+          "percent"
+        ],
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (url_path) (increase(guardian_requests_total{service_name=\"$service_name\", environment=\"$environment\"}[$__range]))",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "{{url_path}}",
+          "range": false,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "title": "Estimated Token Usage Rate",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 17
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "sum"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "token"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(guardian_input_tokens_total{service_name=\"$service_name\", environment=\"$environment\"}[1m])) by (enduser_id)",
+          "legendFormat": "Input - {{enduser_id}}",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(guardian_output_tokens_total{service_name=\"$service_name\", environment=\"$environment\"}[1m])) by (enduser_id)",
+          "legendFormat": "Output - {{enduser_id}}",
+          "range": true,
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "title": "Estimated Cost Rate (USD/sec)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 25
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "sum"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(guardian_estimated_cost_total{service_name=\"$service_name\", environment=\"$environment\"}[1m])) by (enduser_id)",
+          "legendFormat": "Cost - {{enduser_id}}",
           "range": true,
           "refId": "A"
         }
-      ],
-      "title": "Blocked Requests",
-      "type": "timeseries"
+      ]
     }
   ],
   "refresh": "5s",
@@ -500,6 +777,6 @@
   "timezone": "",
   "title": "Guardian AI Monitoring (Otel)",
   "uid": "guardian-otel",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }
