@@ -9,7 +9,10 @@
 
 ## Dev Notes for yall
 - Start LGTM
-cd ~/guardian ./start-lgtm.sh
+cd ~/guardian ./restart-lgtm.sh
+On first install, this script pulls the docker image for otel-lgtm.
+On subseqent runs, the the script stops and deletes the container and forces the provided json to be the only dashboard.
+This isn't permanent but its convenient for dev purposes.
 - Build Executible: 
 cd ~/guardian && go build -o dist/guardian cmd/guardian/main.go
   The executible should have all buisness logic. It puts it in a dist folder that allows for the executible to be run in as a js package.
