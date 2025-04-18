@@ -6,7 +6,7 @@ const guardianPath = path.resolve(__dirname, '../../../dist/guardian.js');
 console.log('Guardian path:', guardianPath);
 const Guardian = require(guardianPath);
 const guardian = new Guardian({ 
-  serviceName: 'mock-ai-app', 
+  serviceName: 'js-app', 
   debug: true 
 });
 

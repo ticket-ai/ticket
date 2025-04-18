@@ -24,7 +24,7 @@ app.add_middleware(
 
 # Initialize Guardian with minimal configuration
 guardian = Guardian({
-    "service_name": "mock-ai-python-app",
+    "service_name": "python-app",
     "environment": "development",
     "debug": True
 })
