@@ -2,7 +2,7 @@
 name = "guardian-ai"
 version = "0.1.0"
 description = "Guardian AI - Ethical AI Monitoring and Governance Platform for Python"
-authors = ["Guardian AI Team <team@guardian-ai.com>"]
+authors = ["Rohan Adwankar <rohan.adwankar@gmail.com>"]
 readme = "README.md"
 packages = [{include = "guardian_ai"}]
 
