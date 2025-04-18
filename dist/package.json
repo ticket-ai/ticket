@@ -16,7 +16,7 @@
     "ethics",
     "middleware"
   ],
-  "author": "",
+  "author": "Rohan Adwankar",
   "license": "MIT",
   "engines": {
     "node": ">=14.0.0"
@@ -26,5 +26,9 @@
     "scripts/",
     "README.md"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RohanAdwankar/guardian.git"
+  },
   "dependencies": {}
 }
