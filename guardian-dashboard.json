@@ -113,8 +113,8 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(rate(guardian_requests_total{service_name=\"$service_name\", environment=\"$environment\"}[1m])) by (url_path, client_address, enduser_id)",
-          "legendFormat": "{{url_path}} - {{client_address}} - {{enduser_id}}",
+          "expr": "sum(rate(guardian_requests_total{service_name=~\"$service_name\", environment=\"$environment\"}[1m])) by (url_path, client_address, enduser_id, service_name)",
+          "legendFormat": "{{url_path}} - {{client_address}} - {{enduser_id}} - {{service_name}}",
           "range": true,
           "refId": "A"
         }
@@ -206,8 +206,8 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(increase(guardian_requests_total{service_name=\"$service_name\", environment=\"$environment\"}[$__range])) by (url_path, client_address, enduser_id)",
-          "legendFormat": "{{url_path}} - {{client_address}} - {{enduser_id}}",
+          "expr": "sum(increase(guardian_requests_total{service_name=~\"$service_name\", environment=\"$environment\"}[$__range])) by (url_path, client_address, enduser_id, service_name)",
+          "legendFormat": "{{url_path}} - {{client_address}} - {{enduser_id}} - {{service_name}}",
           "range": true,
           "refId": "A",
           "instant": false
@@ -300,8 +300,8 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum(rate(guardian_request_duration_seconds_bucket{service_name=\"$service_name\", environment=\"$environment\"}[1m])) by (le, url_path, client_address, enduser_id))",
-          "legendFormat": "p95 - {{url_path}} - {{client_address}} - {{enduser_id}}",
+          "expr": "histogram_quantile(0.95, sum(rate(guardian_request_duration_seconds_bucket{service_name=~\"$service_name\", environment=\"$environment\"}[1m])) by (le, url_path, client_address, enduser_id, service_name))",
+          "legendFormat": "p95 - {{url_path}} - {{client_address}} - {{enduser_id}} - {{service_name}}",
           "range": true,
           "refId": "A"
         },
@@ -311,9 +311,9 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.50, sum(rate(guardian_request_duration_seconds_bucket{service_name=\"$service_name\", environment=\"$environment\"}[1m])) by (le, url_path, client_address, enduser_id))",
+          "expr": "histogram_quantile(0.50, sum(rate(guardian_request_duration_seconds_bucket{service_name=~\"$service_name\", environment=\"$environment\"}[1m])) by (le, url_path, client_address, enduser_id, service_name))",
           "hide": false,
-          "legendFormat": "p50 - {{url_path}} - {{client_address}} - {{enduser_id}}",
+          "legendFormat": "p50 - {{url_path}} - {{client_address}} - {{enduser_id}} - {{service_name}}",
           "range": true,
           "refId": "B"
         }
@@ -409,8 +409,8 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(increase(guardian_requests_blocked_total{service_name=\"$service_name\", environment=\"$environment\"}[$__range])) by (url_path, client_address, enduser_id, guardian_analysis_score)",
-          "legendFormat": "{{url_path}} - {{client_address}} - {{enduser_id}} (Score: {{guardian_analysis_score}})",
+          "expr": "sum(increase(guardian_requests_blocked_total{service_name=~\"$service_name\", environment=\"$environment\"}[$__range])) by (url_path, client_address, enduser_id, guardian_analysis_score, service_name)",
+          "legendFormat": "{{url_path}} - {{client_address}} - {{enduser_id}} - {{service_name}} (Score: {{guardian_analysis_score}})",
           "range": true,
           "refId": "A",
           "instant": false
@@ -474,8 +474,8 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(rate(guardian_estimated_cost_USD_total{service_name=\"$service_name\", environment=\"$environment\"}[1m])) by (enduser_id)",
-          "legendFormat": "Cost - {{enduser_id}}",
+          "expr": "sum(rate(guardian_estimated_cost_USD_total{service_name=~\"$service_name\", environment=\"$environment\"}[1m])) by (enduser_id, service_name)",
+          "legendFormat": "Cost - {{enduser_id}} - {{service_name}}",
           "range": true,
           "refId": "A"
         }
@@ -569,8 +569,8 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(increase(guardian_flagged_requests_total{service_name=\"$service_name\", environment=\"$environment\"}[$__range])) by (url_path, client_address, enduser_id, guardian_rule_0_name, guardian_rule_0_severity)",
-          "legendFormat": "{{url_path}} - {{client_address}} - {{enduser_id}} (Rule: {{guardian_rule_0_name}}, Severity: {{guardian_rule_0_severity}})",
+          "expr": "sum(increase(guardian_flagged_requests_total{service_name=~\"$service_name\", environment=\"$environment\"}[$__range])) by (url_path, client_address, enduser_id, guardian_rule_0_name, guardian_rule_0_severity, service_name)",
+          "legendFormat": "{{url_path}} - {{client_address}} - {{enduser_id}} - {{service_name}} (Rule: {{guardian_rule_0_name}}, Severity: {{guardian_rule_0_severity}})",
           "range": true,
           "refId": "A",
           "instant": false
@@ -611,6 +611,17 @@
         "type": "datasource"
       },
       {
+        "current": {
+          "selected": true,
+          "text": [
+            "js-app",
+            "python-app"
+          ],
+          "value": [
+            "js-app",
+            "python-app"
+          ]
+        },
         "datasource": {
           "type": "prometheus",
           "uid": "prometheus"
@@ -618,7 +629,8 @@
         "definition": "label_values(guardian_requests_total, service_name)",
         "hide": 0,
         "includeAll": false,
-        "multi": false,
+        "label": "Service Name",
+        "multi": true,
         "name": "service_name",
         "options": [],
         "query": {
@@ -626,10 +638,11 @@
           "refId": "StandardVariableQuery"
         },
         "refresh": 1,
-        "regex": "",
+        "regex": "^(js-app|python-app)$",
         "skipUrlSync": false,
         "sort": 0,
-        "type": "query"
+        "type": "query",
+        "useTags": false
       },
       {
         "datasource": {
@@ -660,7 +673,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Guardian AI Monitoring (Otel)",
+  "title": "Guardian AI Monitoring",
   "uid": "guardian-otel",
   "version": 3,
   "weekStart": ""

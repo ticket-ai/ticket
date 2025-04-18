@@ -2,3 +2,5 @@
 docker-otel-lgtm/
 /container
 .env
+/examples/mock-python-app/src/__pycache__
+/dist_python/guardian_ai/guardian_ai/__pycache__
