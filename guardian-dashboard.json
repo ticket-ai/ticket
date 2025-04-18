@@ -409,7 +409,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(increase(guardian_blocked_requests_total{service_name=\"$service_name\", environment=\"$environment\"}[$__range])) by (url_path, client_address, enduser_id, guardian_analysis_score)",
+          "expr": "sum(increase(guardian_requests_blocked_total{service_name=\"$service_name\", environment=\"$environment\"}[$__range])) by (url_path, client_address, enduser_id, guardian_analysis_score)",
           "legendFormat": "{{url_path}} - {{client_address}} - {{enduser_id}} (Score: {{guardian_analysis_score}})",
           "range": true,
           "refId": "A",
