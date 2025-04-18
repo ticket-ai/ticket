@@ -48,7 +48,6 @@ Guardian goes beyond simple telemetry to provide true AI governance capabilities
 ### 2. Multi-layered Security
 
 - **Distributed NLP Analysis**: Low-resource natural language processing to identify potential policy violations
-- **Review Agent**: Optional batch analysis of chat logs to detect sophisticated misuse patterns
 - **Static Analysis**: Pattern matching using regex and other techniques to catch known attack vectors
 - **Pre-prompting Management**: Standardized security controls applied across all AI endpoints
 
@@ -56,15 +55,9 @@ Guardian goes beyond simple telemetry to provide true AI governance capabilities
 
 - Real-time alerting for suspicious activity
 - Automated incident triage and categorization
-- User/IP flagging and blocking capabilities
+- Message flagging and blocking capabilities
 - Trend analysis to identify emerging attack patterns
 
-### 4. Incident Response
-
-- Centralized incident management console
-- Attack mitigation workflows
-- Forensic logging for security investigations
-- Automated remediation options
 
 ## Architecture
 
@@ -86,11 +79,6 @@ Guardian is designed as a lightweight, embeddable middleware that integrates sea
 ```
 
 ## Getting Started
-
-### Prerequisites
-
-- Go 1.20 or higher
-- Docker and Docker Compose (for running the monitoring stack)
 
 ### Installation
 
@@ -188,14 +176,15 @@ Guardian's NLP component analyzes conversations for:
 - **Topic modeling**: Identifying sensitive or prohibited subjects
 - **Anomaly detection**: Flagging unusual interaction patterns
 
-## API Reference
+### Future Features
+#### Incident Response
+- Centralized incident management console
+- Attack mitigation workflows
+- Forensic logging for security investigations
+- Automated remediation options
+- **Review Agent**: Optional batch analysis of chat logs to detect sophisticated misuse patterns
 
-Guardian exposes several APIs for integration and extension:
 
-- **Middleware API**: For intercepting and monitoring AI requests
-- **Rules API**: For managing and customizing security rules
-- **Reporting API**: For accessing telemetry data and insights
-- **Governance API**: For responding to security incidents
 <!-- 
 ## Contributing
 
