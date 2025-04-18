@@ -474,7 +474,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(rate(guardian_estimated_cost_total{service_name=\"$service_name\", environment=\"$environment\"}[1m])) by (enduser_id)",
+          "expr": "sum(rate(guardian_estimated_cost_USD_total{service_name=\"$service_name\", environment=\"$environment\"}[1m])) by (enduser_id)",
           "legendFormat": "Cost - {{enduser_id}}",
           "range": true,
           "refId": "A"

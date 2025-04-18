@@ -27,8 +27,8 @@ import (
 // --- Placeholder Costs (per 1000 tokens) ---
 // These should ideally be configurable or fetched dynamically based on the model used.
 const (
-	costPer1kInputTokens  = 0.001 // Example: $0.001 / 1k input tokens
-	costPer1kOutputTokens = 0.002 // Example: $0.002 / 1k output tokens
+	costPer1kInputTokens  = 0.0025 // Example: $0.0025 / 1k input tokens
+	costPer1kOutputTokens = 0.01   // Example: $0.01 / 1k output tokens
 )
 
 // Config holds configuration options for the telemetry client.
@@ -183,7 +183,7 @@ func (c *Client) setupMetrics(res *resource.Resource) error {
 	)
 
 	c.estimatedCostCounter, err6 = meter.Float64Counter(
-		"guardian_estimated_cost_total",
+		"guardian_estimated_cost_USD_total",
 		metric.WithDescription("Estimated cost of AI requests based on token usage"),
 		metric.WithUnit("USD"),
 	)
