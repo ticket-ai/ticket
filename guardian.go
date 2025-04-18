@@ -9,7 +9,6 @@ import (
 
 	"github.com/rohanadwankar/guardian/pkg/analyzer"
 	"github.com/rohanadwankar/guardian/pkg/middleware"
-	"github.com/rohanadwankar/guardian/pkg/monitoring"
 	"github.com/rohanadwankar/guardian/pkg/telemetry"
 )
 
@@ -61,7 +60,6 @@ type Guardian struct {
 	Analyzer   *analyzer.Analyzer
 	Middleware *middleware.Middleware
 	Telemetry  *telemetry.Client
-	Monitoring *monitoring.Monitor
 	StartTime  time.Time
 }
 
@@ -103,12 +101,6 @@ func New(config Config) (*Guardian, error) {
 		return nil, fmt.Errorf("failed to initialize telemetry client: %w", err)
 	}
 
-	// Initialize monitoring component
-	monitorInstance := monitoring.New(monitoring.Config{
-		ServiceName: config.ServiceName,
-		Environment: config.Environment,
-	})
-
 	// Initialize middleware component
 	middlewareInstance := middleware.NewMiddleware(config.Debug, analyzerInstance, telemetryClient) // Corrected argument order
 
@@ -116,7 +108,6 @@ func New(config Config) (*Guardian, error) {
 		Config:     config,
 		Analyzer:   analyzerInstance,
 		Telemetry:  telemetryClient,
-		Monitoring: monitorInstance,
 		Middleware: middlewareInstance,
 		StartTime:  time.Now(),
 	}
