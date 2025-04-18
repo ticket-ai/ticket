@@ -8,7 +8,7 @@ import sys
 from typing import Dict, Any, List, Optional
 
 # Base API URL
-API_URL = "http://localhost:3001"
+API_URL = "http://localhost:3002"  # Updated to use port 3002 for the Python API server
 
 # Simple test prompts
 TEST_PROMPTS = [

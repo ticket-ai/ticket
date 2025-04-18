@@ -14,7 +14,7 @@ def main():
     """
     print("Starting Guardian AI FastAPI Example...")
     
-    # Start the Mock LLM server
+    # Start the Mock LLM server on port 3457
     llm_process = subprocess.Popen(
         [sys.executable, "src/mock_llm_server.py"],
         stdout=subprocess.PIPE,
@@ -22,12 +22,12 @@ def main():
         text=True,
         bufsize=1
     )
-    print("Started Mock LLM server (PID: {})".format(llm_process.pid))
+    print(f"Started Mock LLM server on port 3457 (PID: {llm_process.pid})")
     
     # Give the LLM server a moment to start
     time.sleep(1)
     
-    # Start the FastAPI server
+    # Start the FastAPI server on port 3002
     api_process = subprocess.Popen(
         [sys.executable, "src/server.py"],
         stdout=subprocess.PIPE,
@@ -35,7 +35,7 @@ def main():
         text=True,
         bufsize=1
     )
-    print("Started FastAPI server (PID: {})".format(api_process.pid))
+    print(f"Started FastAPI server on port 3002 (PID: {api_process.pid})")
     
     # Setup signal handler for graceful shutdown
     def signal_handler(sig, frame):

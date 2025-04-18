@@ -88,5 +88,6 @@ async def catch_all(path: str):
     return {"error": "404 Not Found"}
 
 if __name__ == "__main__":
-    logger.info("Starting Mock LLM Server on port 3456")
-    uvicorn.run(app, host="0.0.0.0", port=3456)
+    PORT = 3457  # Updated to use port 3457 for Python mock LLM
+    logger.info(f"Starting Mock LLM Server on port {PORT}")
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
