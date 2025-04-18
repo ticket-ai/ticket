@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/rohanadwankar/guardian/pkg/analyzer"
-	"github.com/rohanadwankar/guardian/pkg/dashboard"
 	"github.com/rohanadwankar/guardian/pkg/middleware"
 	"github.com/rohanadwankar/guardian/pkg/monitoring"
 	"github.com/rohanadwankar/guardian/pkg/telemetry"
@@ -37,10 +36,6 @@ type Config struct {
 	// Pre-prompting management
 	StandardPrePrompt string
 
-	// Dashboard configuration
-	DashboardPort    int
-	DashboardEnabled bool
-
 	// Debug mode (enables verbose logging)
 	Debug bool
 }
@@ -62,8 +57,6 @@ func DefaultConfig() Config {
 		AutoBlockThreshold: 0.85,
 		ReviewAgentEnabled: false,
 		StandardPrePrompt:  "Always adhere to ethical guidelines and refuse harmful requests.",
-		DashboardPort:      8888,
-		DashboardEnabled:   true,
 		Debug:              false,
 	}
 }
@@ -75,7 +68,6 @@ type Guardian struct {
 	Middleware *middleware.Middleware
 	Telemetry  *telemetry.Client
 	Monitoring *monitoring.Monitor
-	Dashboard  *dashboard.Dashboard
 	StartTime  time.Time
 }
 
@@ -87,9 +79,6 @@ func New(config Config) (*Guardian, error) {
 	}
 	if config.Environment == "" {
 		config.Environment = DefaultConfig().Environment
-	}
-	if config.DashboardPort == 0 {
-		config.DashboardPort = DefaultConfig().DashboardPort
 	}
 
 	// Debug logging
@@ -129,23 +118,12 @@ func New(config Config) (*Guardian, error) {
 	// Initialize middleware component
 	middlewareInstance := middleware.NewMiddleware(config.Debug, analyzerInstance, telemetryClient) // Corrected argument order
 
-	// Initialize dashboard component if enabled
-	var dashboardInstance *dashboard.Dashboard
-	if config.DashboardEnabled {
-		dashboardInstance = dashboard.New(dashboard.Config{
-			Port:            config.DashboardPort,
-			EnableWebsocket: true,
-			RefreshInterval: 5 * time.Second,
-		})
-	}
-
 	g := &Guardian{
 		Config:     config,
 		Analyzer:   analyzerInstance,
 		Telemetry:  telemetryClient,
 		Monitoring: monitorInstance,
 		Middleware: middlewareInstance,
-		Dashboard:  dashboardInstance,
 		StartTime:  time.Now(),
 	}
 
@@ -154,27 +132,15 @@ func New(config Config) (*Guardian, error) {
 
 // Start initializes and starts all Guardian components.
 func (g *Guardian) Start() (string, error) {
-	// Start the dashboard if it's enabled
-	var dashboardURL string
-	if g.Config.DashboardEnabled && g.Dashboard != nil {
-		dashboardURL = g.Dashboard.Start()
-		if g.Config.Debug {
-			log.Printf("Guardian dashboard started at %s", dashboardURL)
-		}
+	if g.Config.Debug {
+		log.Println("Guardian started.") // Simplified log message
 	}
 
-	return dashboardURL, nil
+	return "", nil // Return empty string and nil error as dashboard URL is removed
 }
 
 // Shutdown gracefully shuts down all Guardian components.
 func (g *Guardian) Shutdown() error {
-	// Shutdown dashboard if it exists
-	if g.Dashboard != nil {
-		if err := g.Dashboard.Stop(); err != nil {
-			log.Printf("Error shutting down dashboard: %v", err)
-		}
-	}
-
 	// Shutdown telemetry
 	if err := g.Telemetry.Shutdown(); err != nil {
 		return fmt.Errorf("error shutting down telemetry: %w", err)
@@ -188,23 +154,9 @@ func Version() string {
 	return "0.1.0-alpha"
 }
 
-// GetDashboardURL returns the URL for the Guardian dashboard.
-func (g *Guardian) GetDashboardURL() string {
-	if !g.Config.DashboardEnabled || g.Dashboard == nil {
-		return ""
-	}
-
-	return g.Dashboard.GetDashboardURL()
-}
-
 // RecordCompletionRequest records a completion request for monitoring.
-// This updates the dashboard with the latest metrics and sends data to OpenTelemetry.
+// This sends data to OpenTelemetry.
 func (g *Guardian) RecordCompletionRequest(method, endpoint, status string, latencyMs int, ip string) {
-	// Update dashboard if enabled
-	if g.Dashboard != nil {
-		g.Dashboard.RecordRequest(method, endpoint, latencyMs, status, ip)
-	}
-
 	// Send telemetry if enabled
 	if g.Telemetry != nil && g.Config.MetricsEnabled {
 		ctx := context.Background()
@@ -229,12 +181,5 @@ func (g *Guardian) RecordCompletionRequest(method, endpoint, status string, late
 				log.Printf("Failed to record telemetry event: %v", err)
 			}
 		}
-	}
-}
-
-// UpdateMessagesPerSecond updates the messages per second metric on the dashboard.
-func (g *Guardian) UpdateMessagesPerSecond(value float64) {
-	if g.Dashboard != nil {
-		g.Dashboard.IncrementMessagesPerSecond(value)
 	}
 }

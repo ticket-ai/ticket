@@ -17,16 +17,14 @@ import (
 )
 
 var (
-	port            = flag.Int("port", 8080, "Port to listen on")
-	configFile      = flag.String("config", "", "Path to config file (optional)")
-	serviceName     = flag.String("service", "guardian-app", "Service name")
-	environment     = flag.String("env", "development", "Environment (development, staging, production)")
-	prePrompt       = flag.String("pre-prompt", "", "Standard pre-prompt to apply to all requests")
-	blockThreshold  = flag.Float64("threshold", 0.85, "Threshold for automatically blocking requests")
-	enableNLP       = flag.Bool("nlp", true, "Enable NLP analysis")
-	dashboardPort   = flag.Int("dashboard-port", 8888, "Port for the dashboard to listen on")
-	enableDashboard = flag.Bool("dashboard", true, "Enable the monitoring dashboard")
-	debug           = flag.Bool("debug", false, "Enable debug mode")
+	port           = flag.Int("port", 8080, "Port to listen on")
+	configFile     = flag.String("config", "", "Path to config file (optional)")
+	serviceName    = flag.String("service", "guardian-app", "Service name")
+	environment    = flag.String("env", "development", "Environment (development, staging, production)")
+	prePrompt      = flag.String("pre-prompt", "", "Standard pre-prompt to apply to all requests")
+	blockThreshold = flag.Float64("threshold", 0.85, "Threshold for automatically blocking requests")
+	enableNLP      = flag.Bool("nlp", true, "Enable NLP analysis")
+	debug          = flag.Bool("debug", false, "Enable debug mode")
 )
 
 // Metrics for the Guardian proxy
@@ -52,8 +50,6 @@ func main() {
 	config.Environment = *environment
 	config.AutoBlockThreshold = *blockThreshold
 	config.NLPAnalysisEnabled = *enableNLP
-	config.DashboardPort = *dashboardPort
-	config.DashboardEnabled = *enableDashboard
 	config.Debug = *debug
 
 	if *prePrompt != "" {
@@ -122,26 +118,6 @@ func main() {
 		Handler: g.Middleware.HTTPHandler(monitoredHandler),
 	}
 
-	// Start the dashboard if enabled
-	var dashboardURL string
-	if config.DashboardEnabled {
-		var startErr error
-		dashboardURL, startErr = g.Start()
-		if startErr != nil {
-			log.Printf("Warning: Failed to start dashboard: %v", startErr)
-		} else {
-			if dashboardURL != "" {
-				log.Printf("")
-				log.Printf("🔍 Guardian dashboard running at: %s", dashboardURL)
-				log.Printf("📊 View metrics and monitor AI requests in real-time")
-				log.Printf("")
-			}
-		}
-
-		// Start a background goroutine to update metrics regularly
-		go updateMetrics(g, m)
-	}
-
 	// Handle termination signals
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
@@ -173,27 +149,5 @@ func main() {
 	log.Printf("Ready to protect AI endpoints...")
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("Server error: %v", err)
-	}
-}
-
-// updateMetrics calculates and updates metrics for the dashboard and sends them to OpenTelemetry
-func updateMetrics(g *guardian.Guardian, m *metrics) {
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-
-	for range ticker.C {
-		// Calculate messages per second
-		now := time.Now()
-		elapsed := now.Sub(m.lastCountTime).Seconds()
-		count := atomic.SwapUint64(&m.requestsLastSecond, 0)
-
-		mps := 0.0
-		if elapsed > 0 {
-			mps = float64(count) / elapsed
-		}
-
-		// Reset the timer
-		m.lastCountTime = now
-		_ = mps // Use mps to avoid unused variable error if needed, or remove calculation
 	}
 }
