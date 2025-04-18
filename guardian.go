@@ -84,6 +84,7 @@ func New(config Config) (*Guardian, error) {
 	// Initialize analyzer component
 	analyzerInstance, err := analyzer.New(analyzer.Config{
 		NLPEnabled:         config.NLPAnalysisEnabled,
+		Rules:              config.Rules, // Pass the rules from the main config
 		AutoBlockThreshold: config.AutoBlockThreshold,
 	})
 	if err != nil {

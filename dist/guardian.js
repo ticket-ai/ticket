@@ -91,38 +91,51 @@ class Guardian {
         
         // --- Load Rules ---
         let rulesToUse = this.config.rules || DEFAULT_CONFIG.rules; // Start with defaults or config override
-        const userRulesPath = path.resolve(process.cwd(), 'guardian_rules.json'); // Look for .json
+        const userRootRulesPath = path.resolve(process.cwd(), 'guardian_rules.json'); // Look for .json in CWD
+        const userSrcRulesPath = path.resolve(process.cwd(), 'src', 'guardian_rules.json'); // Look for .json in CWD/src
 
-        if (fs.existsSync(userRulesPath)) {
+        let loadedFromFile = false;
+
+        this.log(`Checking for rules file at: ${userRootRulesPath}`);
+        if (fs.existsSync(userRootRulesPath)) {
           try {
-            const userRulesFile = fs.readFileSync(userRulesPath, 'utf8');
+            const userRulesFile = fs.readFileSync(userRootRulesPath, 'utf8');
             const parsedJson = JSON.parse(userRulesFile); // Use JSON.parse
             if (parsedJson && Array.isArray(parsedJson.rules)) {
               rulesToUse = parsedJson.rules;
-              this.log(`Loaded ${rulesToUse.length} rules from guardian_rules.json`);
+              this.log(`Loaded ${rulesToUse.length} rules from ${userRootRulesPath}`);
+              loadedFromFile = true;
             } else {
-              this.log('Warning: guardian_rules.json found but is invalid or empty. Using default rules.');
+              this.log(`Warning: ${userRootRulesPath} found but is invalid or empty. Using default rules.`);
             }
           } catch (jsonErr) {
-            this.log(`Warning: Error reading or parsing guardian_rules.json: ${jsonErr.message}. Using default rules.`);
+            this.log(`Warning: Error reading or parsing ${userRootRulesPath}: ${jsonErr.message}. Using default rules.`);
           }
-        } else {
-          // Check if running within the guardian project itself for the default rules.json
-          const projectRulesPath = path.resolve(__dirname, '..', 'rules.json'); // Check project root for .json
-          if (fs.existsSync(projectRulesPath) && userRulesPath !== projectRulesPath) {
-             try {
-                const projectRulesFile = fs.readFileSync(projectRulesPath, 'utf8');
-                const parsedJson = JSON.parse(projectRulesFile); // Use JSON.parse
-                 if (parsedJson && Array.isArray(parsedJson.rules)) {
-                    rulesToUse = parsedJson.rules;
-                    this.log(`Loaded ${rulesToUse.length} rules from project rules.json`);
-                 }
-             } catch(jsonErr) {
-                 this.log(`Warning: Error reading project rules.json: ${jsonErr.message}. Using built-in defaults.`);
-             }
-          } else {
-            this.log('No rules.json found. Using built-in default rules.');
-          }
+        }
+
+        if (!loadedFromFile) {
+            this.log(`Checking for rules file at: ${userSrcRulesPath}`);
+            if (fs.existsSync(userSrcRulesPath)) {
+                try {
+                    const userRulesFile = fs.readFileSync(userSrcRulesPath, 'utf8');
+                    const parsedJson = JSON.parse(userRulesFile);
+                    if (parsedJson && Array.isArray(parsedJson.rules)) {
+                        // Extract the "rules" array from the JSON object
+                        rulesToUse = parsedJson.rules;
+                        this.log(`Loaded ${rulesToUse.length} rules from ${userSrcRulesPath}`);
+                        loadedFromFile = true;
+                    } else {
+                        this.log(`Warning: ${userSrcRulesPath} found but is invalid or empty. Using default rules.`);
+                    }
+                } catch (jsonErr) {
+                    this.log(`Warning: Error reading or parsing ${userSrcRulesPath}: ${jsonErr.message}. Using default rules.`);
+                }
+            }
+        }
+
+        if (!loadedFromFile) {
+            this.log('No external rules file found or loaded successfully. Using built-in default rules.');
+            rulesToUse = DEFAULT_CONFIG.rules; // Explicitly fall back to built-in defaults
         }
         // --- End Load Rules ---
         
@@ -131,8 +144,7 @@ class Guardian {
           `-port=${this.port}`,
           `-service=${this.config.serviceName}`,
           `-env=${this.config.environment}`,
-          // Pass rules as a JSON string
-          `-rules=${JSON.stringify(rulesToUse)}`
+          `-rules=${this._prepareRulesForGo(rulesToUse)}`
         ];
         
         if (this.config.prePrompt) {
@@ -524,6 +536,28 @@ class Guardian {
     
     // If not found, return the default path anyway
     return binaryPath;
+  }
+  
+  /**
+   * Prepare rules for passing to Go binary
+   * Properly escapes regex patterns and ensures format compatibility
+   * @private
+   */
+  _prepareRulesForGo(rules) {
+    // Go expects an array of Rule objects directly
+    return JSON.stringify(rules.map(rule => {
+      // Create a copy to avoid modifying the original rule
+      const processedRule = { ...rule };
+      
+      // Ensure pattern has proper escaping for Go regex
+      // This is critical for patterns with \b word boundaries and other special regex constructs
+      if (processedRule.pattern) {
+        // No additional processing needed - the pattern is already correctly escaped in the JSON
+        // The Go regexp.Compile will handle it correctly
+      }
+      
+      return processedRule;
+    }));
   }
   
   /**

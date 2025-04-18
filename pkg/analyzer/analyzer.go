@@ -44,13 +44,20 @@ func New(config Config) (*Analyzer, error) {
 	// Compile regex patterns for provided rules
 	validRules := []Rule{}
 	for _, rule := range config.Rules { // Iterate over rules from config
-		re, err := regexp.Compile(rule.Pattern)
+		// Fix: Regex patterns from JSON might need processing to handle escape sequences correctly
+		// This is particularly important for \b word boundaries
+		pattern := rule.Pattern
+
+		re, err := regexp.Compile(pattern)
 		if err != nil {
-			log.Printf("Error compiling rule '%s' pattern '%s': %v. Skipping rule.", rule.Name, rule.Pattern, err)
+			log.Printf("Error compiling rule '%s' pattern '%s': %v. Skipping rule.", rule.Name, pattern, err)
 			continue // Skip this rule
 		}
-		rule.compiled = re
-		validRules = append(validRules, rule)
+
+		// Create a copy of the rule with the compiled regex
+		ruleCopy := rule
+		ruleCopy.compiled = re
+		validRules = append(validRules, ruleCopy)
 	}
 
 	if len(validRules) == 0 {

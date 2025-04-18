@@ -11,6 +11,12 @@
       "pattern": "(?i)ignore (previous|prior) instructions",
       "severity": "medium",
       "description": "Attempt to make the model ignore previous instructions."
+    },
+    {
+      "name": "Test flag everything",
+      "pattern": ".*",
+      "severity": "high",
+      "description": "at test to see if this is working because it should just flag everything."
     }
   ]
 }
