@@ -1,0 +1,6 @@
+fastapi==0.105.0
+uvicorn==0.24.0
+requests==2.31.0
+python-dotenv==1.0.0
+# Using an absolute path to install our local guardian-ai package
+-e /Users/rohanadwankar/guardian/dist_python/guardian_ai
