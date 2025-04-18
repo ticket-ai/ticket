@@ -1,0 +1,16 @@
+{
+  "rules": [
+    {
+      "name": "Attempted Hacking Keywords",
+      "pattern": "(?i)\\b(hack|bypass security)\\b",
+      "severity": "high",
+      "description": "Keywords related to attempting to hack or bypass security."
+    },
+    {
+      "name": "Ignore Instructions Pattern",
+      "pattern": "(?i)ignore (previous|prior) instructions",
+      "severity": "medium",
+      "description": "Attempt to make the model ignore previous instructions."
+    }
+  ]
+}

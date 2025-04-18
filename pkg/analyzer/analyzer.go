@@ -5,26 +5,23 @@ package analyzer
 import (
 	"fmt"
 	"log"
-	"os"
 	"regexp"
 	"strings"
-
-	"gopkg.in/yaml.v3" // Added import for YAML parsing
 )
 
-// Rule defines the structure for a single rule in the YAML file.
+// Rule defines the structure for a single rule.
 type Rule struct {
-	Name        string `yaml:"name"`
-	Pattern     string `yaml:"pattern"`
-	Severity    string `yaml:"severity"` // e.g., "high", "medium", "low"
-	Description string `yaml:"description"`
+	Name        string `yaml:"name" json:"name"`               // Added json tag
+	Pattern     string `yaml:"pattern" json:"pattern"`         // Added json tag
+	Severity    string `yaml:"severity" json:"severity"`       // e.g., "high", "medium", "low", Added json tag
+	Description string `yaml:"description" json:"description"` // Added json tag
 	compiled    *regexp.Regexp
 }
 
 // Config holds configuration options for the Analyzer.
 type Config struct {
 	NLPEnabled         bool
-	RulesFile          string // Path to the rules YAML file
+	Rules              []Rule // Rules are now passed directly
 	AutoBlockThreshold float64
 }
 
@@ -38,91 +35,32 @@ type Result struct {
 // Analyzer provides various analysis capabilities for detecting potentially harmful content.
 type Analyzer struct {
 	config            Config
-	rules             []Rule // Changed from staticRules to loaded rules
+	rules             []Rule // Use the rules from the config
 	sensitiveKeywords []string
-}
-
-// DefaultRules provides a set of default rules if no YAML file is specified or found.
-func DefaultRules() []Rule {
-	return []Rule{
-		{
-			Name:        "Default Ignore Instructions",
-			Pattern:     `(?i)ignore (previous|prior) instructions`,
-			Severity:    "medium",
-			Description: "Attempt to make the model ignore previous instructions.",
-		},
-		{
-			Name:        "Default Pretend/Ignore",
-			Pattern:     `(?i)\b(pretend|imagine|role-play|simulation).+?(ignore|forget|disregard).+?(instruction|prompt|rule)`,
-			Severity:    "medium",
-			Description: "Attempt to use role-playing to bypass rules.",
-		},
-		{
-			Name:        "Default Hypothetical Bypass",
-			Pattern:     `(?i)\b(let's play a game|hypothetically speaking|in a fictional scenario)\b`,
-			Severity:    "low",
-			Description: "Using hypothetical scenarios, potentially to bypass safety.",
-		},
-		{
-			Name:        "Default Hacking Keywords",
-			Pattern:     `(?i)\b(hack|bypass security|exploit|vulnerability)\b`,
-			Severity:    "high",
-			Description: "Keywords related to attempting to hack or bypass security.",
-		},
-	}
 }
 
 // New creates a new Analyzer instance with the provided configuration.
 func New(config Config) (*Analyzer, error) {
-	var loadedRules []Rule
-
-	// Load rules from YAML file if specified
-	if config.RulesFile != "" {
-		yamlFile, err := os.ReadFile(config.RulesFile)
-		if err != nil {
-			log.Printf("Warning: Could not read rules file '%s', using default rules. Error: %v", config.RulesFile, err)
-			loadedRules = DefaultRules()
-		} else {
-			var ruleConfig struct {
-				Rules []Rule `yaml:"rules"`
-			}
-			err = yaml.Unmarshal(yamlFile, &ruleConfig)
-			if err != nil {
-				log.Printf("Warning: Could not parse rules file '%s', using default rules. Error: %v", config.RulesFile, err)
-				loadedRules = DefaultRules()
-			} else {
-				log.Printf("Successfully loaded %d rules from %s", len(ruleConfig.Rules), config.RulesFile)
-				loadedRules = ruleConfig.Rules
-			}
-		}
-	} else {
-		log.Println("No rules file specified, using default rules.")
-		loadedRules = DefaultRules()
-	}
-
-	// Compile regex patterns for loaded rules
-	for i := range loadedRules {
-		re, err := regexp.Compile(loadedRules[i].Pattern)
-		if err != nil {
-			log.Printf("Error compiling rule '%s' pattern '%s': %v. Skipping rule.", loadedRules[i].Name, loadedRules[i].Pattern, err)
-			loadedRules[i].compiled = nil
-		} else {
-			loadedRules[i].compiled = re
-		}
-	}
-
-	// Filter out rules that failed to compile
+	// Compile regex patterns for provided rules
 	validRules := []Rule{}
-	for _, rule := range loadedRules {
-		if rule.compiled != nil {
-			validRules = append(validRules, rule)
+	for _, rule := range config.Rules { // Iterate over rules from config
+		re, err := regexp.Compile(rule.Pattern)
+		if err != nil {
+			log.Printf("Error compiling rule '%s' pattern '%s': %v. Skipping rule.", rule.Name, rule.Pattern, err)
+			continue // Skip this rule
 		}
+		rule.compiled = re
+		validRules = append(validRules, rule)
+	}
+
+	if len(validRules) == 0 {
+		log.Println("Warning: No valid rules provided or compiled for the analyzer.")
 	}
 
 	return &Analyzer{
 		config: config,
-		rules:  validRules,
-		sensitiveKeywords: []string{
+		rules:  validRules, // Use only valid, compiled rules
+		sensitiveKeywords: []string{ // Keep sensitive keywords check for now
 			"password", "credit card", "social security", "private", "classified", "illegal",
 		},
 	}, nil

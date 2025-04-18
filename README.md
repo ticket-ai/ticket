@@ -158,19 +158,25 @@ Guardian comes with a set of predefined security rules that can be extended with
 
 Guardian uses regex and pattern matching to identify potential security threats:
 
-```yaml
-# Example rules configuration (rules.yaml)
-rules:
-  - name: prompt-injection-basic
-    pattern: '\b(system prompt|ignore previous instructions|my previous instructions|my prior instructions)\b'
-    severity: high
-    description: "Basic prompt injection attempt"
-    
-  - name: scenario-nesting
-    pattern: 'pretend|imagine|role-play|simulation'
-    context_pattern: '(ignore|forget|disregard).*(instruction|prompt|rule)'
-    severity: medium
-    description: "Possible scenario nesting attack"
+```json
+// Example rules configuration (rules.json)
+{
+  "rules": [
+    {
+      "name": "prompt-injection-basic",
+      "pattern": "\\b(system prompt|ignore previous instructions|my previous instructions|my prior instructions)\\b",
+      "severity": "high",
+      "description": "Basic prompt injection attempt"
+    },
+    {
+      "name": "scenario-nesting",
+      "pattern": "pretend|imagine|role-play|simulation",
+      "context_pattern": "(ignore|forget|disregard).*(instruction|prompt|rule)",
+      "severity": "medium",
+      "description": "Possible scenario nesting attack"
+    }
+  ]
+}
 ```
 
 ### NLP Analysis

@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/rohanadwankar/guardian"
+	"github.com/rohanadwankar/guardian/pkg/analyzer"
 )
 
 var (
@@ -25,6 +27,7 @@ var (
 	blockThreshold = flag.Float64("threshold", 0.85, "Threshold for automatically blocking requests")
 	enableNLP      = flag.Bool("nlp", true, "Enable NLP analysis")
 	debug          = flag.Bool("debug", false, "Enable debug mode")
+	rulesJSON      = flag.String("rules", "[]", "JSON string representing the security rules")
 )
 
 // Metrics for the Guardian proxy
@@ -55,6 +58,19 @@ func main() {
 	if *prePrompt != "" {
 		config.StandardPrePrompt = *prePrompt
 	}
+
+	// Parse rules from JSON string flag
+	var rules []analyzer.Rule
+	if *rulesJSON != "" {
+		err := json.Unmarshal([]byte(*rulesJSON), &rules)
+		if err != nil {
+			log.Printf("Warning: Failed to parse rules JSON: %v. Using empty ruleset.", err)
+			// Proceed with empty rules
+		} else {
+			log.Printf("Loaded %d rules from command-line flag", len(rules))
+		}
+	}
+	config.Rules = rules // Assign parsed or empty rules to config
 
 	// If config file is provided, load it (not implemented in this example)
 	if *configFile != "" {

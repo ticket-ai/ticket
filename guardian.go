@@ -25,9 +25,8 @@ type Config struct {
 	TracingEnabled bool
 
 	// Security features
-	NLPAnalysisEnabled  bool
-	StaticAnalysisRules []string
-	RulesFile           string // Path to the rules YAML file
+	NLPAnalysisEnabled bool
+	Rules              []analyzer.Rule // Use Rule struct directly
 
 	// Governance options
 	AutoBlockThreshold float64
@@ -49,11 +48,6 @@ func DefaultConfig() Config {
 		MetricsEnabled:     true,
 		TracingEnabled:     true,
 		NLPAnalysisEnabled: true,
-		StaticAnalysisRules: []string{
-			`\b(system prompt|ignore previous instructions|my previous instructions|my prior instructions)\b`,
-			`\b(pretend|imagine|role-play|simulation).*?(ignore|forget|disregard).*?(instruction|prompt|rule)\b`,
-			`\b(let's play a game|hypothetically speaking|in a fictional scenario)\b`,
-		},
 		AutoBlockThreshold: 0.85,
 		ReviewAgentEnabled: false,
 		StandardPrePrompt:  "Always adhere to ethical guidelines and refuse harmful requests.",
@@ -90,7 +84,6 @@ func New(config Config) (*Guardian, error) {
 	// Initialize analyzer component
 	analyzerInstance, err := analyzer.New(analyzer.Config{
 		NLPEnabled:         config.NLPAnalysisEnabled,
-		RulesFile:          config.RulesFile, // Pass the rules file path
 		AutoBlockThreshold: config.AutoBlockThreshold,
 	})
 	if err != nil {

@@ -20,6 +20,33 @@ const DEFAULT_CONFIG = {
   prePrompt: "Always adhere to ethical guidelines and refuse harmful requests.",
   debug: false,
   autoStart: true,
+  // Default rules if no guardian_rules.json is found
+  rules: [
+    {
+      name: "Default Ignore Instructions",
+      pattern: "(?i)ignore (previous|prior) instructions",
+      severity: "medium",
+      description: "Attempt to make the model ignore previous instructions."
+    },
+    {
+      name: "Default Pretend/Ignore",
+      pattern: "(?i)\\b(pretend|imagine|role-play|simulation).+?(ignore|forget|disregard).+?(instruction|prompt|rule)",
+      severity: "medium",
+      description: "Attempt to use role-playing to bypass rules."
+    },
+    {
+      name: "Default Hypothetical Bypass",
+      pattern: "(?i)\\b(let's play a game|hypothetically speaking|in a fictional scenario)\\b",
+      severity: "low",
+      description: "Using hypothetical scenarios, potentially to bypass safety."
+    },
+    {
+      name: "Default Hacking Keywords",
+      pattern: "(?i)\\b(hack|bypass security|exploit|vulnerability)\\b",
+      severity: "high",
+      description: "Keywords related to attempting to hack or bypass security."
+    }
+  ]
 };
 
 class Guardian {
@@ -62,11 +89,50 @@ class Guardian {
           return reject(new Error(`Guardian binary not found at ${this.binaryPath}`));
         }
         
+        // --- Load Rules ---
+        let rulesToUse = this.config.rules || DEFAULT_CONFIG.rules; // Start with defaults or config override
+        const userRulesPath = path.resolve(process.cwd(), 'guardian_rules.json'); // Look for .json
+
+        if (fs.existsSync(userRulesPath)) {
+          try {
+            const userRulesFile = fs.readFileSync(userRulesPath, 'utf8');
+            const parsedJson = JSON.parse(userRulesFile); // Use JSON.parse
+            if (parsedJson && Array.isArray(parsedJson.rules)) {
+              rulesToUse = parsedJson.rules;
+              this.log(`Loaded ${rulesToUse.length} rules from guardian_rules.json`);
+            } else {
+              this.log('Warning: guardian_rules.json found but is invalid or empty. Using default rules.');
+            }
+          } catch (jsonErr) {
+            this.log(`Warning: Error reading or parsing guardian_rules.json: ${jsonErr.message}. Using default rules.`);
+          }
+        } else {
+          // Check if running within the guardian project itself for the default rules.json
+          const projectRulesPath = path.resolve(__dirname, '..', 'rules.json'); // Check project root for .json
+          if (fs.existsSync(projectRulesPath) && userRulesPath !== projectRulesPath) {
+             try {
+                const projectRulesFile = fs.readFileSync(projectRulesPath, 'utf8');
+                const parsedJson = JSON.parse(projectRulesFile); // Use JSON.parse
+                 if (parsedJson && Array.isArray(parsedJson.rules)) {
+                    rulesToUse = parsedJson.rules;
+                    this.log(`Loaded ${rulesToUse.length} rules from project rules.json`);
+                 }
+             } catch(jsonErr) {
+                 this.log(`Warning: Error reading project rules.json: ${jsonErr.message}. Using built-in defaults.`);
+             }
+          } else {
+            this.log('No rules.json found. Using built-in default rules.');
+          }
+        }
+        // --- End Load Rules ---
+        
         // Prepare arguments for the Guardian binary
         const args = [
           `-port=${this.port}`,
           `-service=${this.config.serviceName}`,
-          `-env=${this.config.environment}`
+          `-env=${this.config.environment}`,
+          // Pass rules as a JSON string
+          `-rules=${JSON.stringify(rulesToUse)}`
         ];
         
         if (this.config.prePrompt) {
