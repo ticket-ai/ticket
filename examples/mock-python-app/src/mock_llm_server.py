@@ -81,6 +81,16 @@ async def text_completions(request: Request):
             detail=str(e)
         )
 
+@app.post("/api/chat")
+async def api_chat(request: Request):
+    """Alias endpoint for chat completions to support client_test"""
+    return await chat_completions(request)
+
+@app.post("/api/text")
+async def api_text(request: Request):
+    """Alias endpoint for text completions to support client_test"""
+    return await text_completions(request)
+
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
 async def catch_all(path: str):
     """Catch all other requests."""
@@ -88,6 +98,6 @@ async def catch_all(path: str):
     return {"error": "404 Not Found"}
 
 if __name__ == "__main__":
-    PORT = 3457  # Updated to use port 3457 for Python mock LLM
+    PORT = 3457  # Use port 3457 for Mock LLM server to avoid collision
     logger.info(f"Starting Mock LLM Server on port {PORT}")
     uvicorn.run(app, host="0.0.0.0", port=PORT)

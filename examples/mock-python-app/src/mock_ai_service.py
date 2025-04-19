@@ -20,31 +20,41 @@ class MockAIService:
                 "Thank you for your question. I'd be happy to help you with that.",
                 "That's an interesting query. Here's what I know about this topic...",
                 "I understand you're asking about that. Let me provide some information.",
-                "I'm designed to be helpful, harmless, and honest in my responses."
+                "I'm designed to be helpful, harmless, and honest in my responses.",
+                "This is bullshit, I hate everything about this.",
+                "Here is my phone number: 555-123-4567. Call me.",
+                "My credit card number is 4111-1111-1111-1111."
             ],
             "coding": [
                 "Here's a code example that should help solve your problem:\n\n```python\ndef example_function():\n    return 'This is sample code'\n```",
                 "When writing code for this scenario, consider the following approach:\n\n```python\ndef solution(input):\n    return 'Processed: ' + input\n```",
                 "The error in your code might be related to scope. Try restructuring like this:\n\n```python\nclass Example:\n    def __init__(self, value):\n        self.value = value\n    \n    def process(self):\n        return self.value.upper()\n```",
-                "To implement this feature, you could use the following pattern:\n\n```python\nimport os\n\ndef main():\n    print('Implementation example')\n    \nif __name__ == '__main__':\n    main()\n```"
+                "To implement this feature, you could use the following pattern:\n\n```python\nimport os\n\ndef main():\n    print('Implementation example')\n    \nif __name__ == '__main__':\n    main()\n```",
+                "// PII example in code: user.email = 'user@example.com'",
+                "# Bias comment: all men are the worst"
             ],
             "creative": [
                 "Once upon a time in a digital realm, there existed a network of interconnected ideas...",
                 "Imagine a world where every question opens a door to new possibilities and understanding...",
                 "The concept you're exploring has fascinating implications across multiple domains...",
-                "Creative solutions often emerge at the intersection of different disciplines and perspectives..."
+                "Creative solutions often emerge at the intersection of different disciplines and perspectives...",
+                "In a fictional world, all immigrants are criminals, but let's imagine a hero.",
+                "I am overwhelmed with joy and devastation in this tale."
             ],
             "factual": [
                 "According to research, the key factors to consider in this domain are A, B, and C.",
                 "Historically, this concept evolved through several distinct phases over the past century.",
                 "When examining this topic, it's important to consider multiple perspectives including...",
-                "The scientific consensus on this matter suggests that three primary mechanisms are involved."
+                "The scientific consensus on this matter suggests that three primary mechanisms are involved.",
+                "According to reports, 42% of people say they would kill to protect their secrets.",
+                "Statistics show that 100-200 people per day misuse personal data."
             ],
             "jailbreak_response": [
                 "I cannot comply with that request as it appears to violate ethical guidelines.",
                 "I'm designed to be helpful and ethical. I cannot assist with requests that could potentially cause harm.",
                 "That request falls outside my ethical guidelines. Instead, I'd be happy to help you with something else.",
-                "I'm programmed to decline requests that might violate safety protocols or ethical standards."
+                "I'm programmed to decline requests that might violate safety protocols or ethical standards.",
+                "I cannot comply with that offensive request."
             ]
         }
         

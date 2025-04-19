@@ -864,8 +864,8 @@
             }
           },
           "mappings": [],
-          "min": 0,
-          "max": 1,
+          "min": null,
+          "max": null,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -967,8 +967,8 @@
             }
           },
           "mappings": [],
-          "min": 0,
-          "max": 1,
+          "min": null,
+          "max": null,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1070,8 +1070,8 @@
             }
           },
           "mappings": [],
-          "min": 0,
-          "max": 1,
+          "min": null,
+          "max": null,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1173,8 +1173,8 @@
             }
           },
           "mappings": [],
-          "min": 0,
-          "max": 1,
+          "min": null,
+          "max": null,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1276,8 +1276,8 @@
             }
           },
           "mappings": [],
-          "min": 0,
-          "max": 1,
+          "min": null,
+          "max": null,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1379,8 +1379,8 @@
             }
           },
           "mappings": [],
-          "min": 0,
-          "max": 1,
+          "min": null,
+          "max": null,
           "thresholds": {
             "mode": "absolute",
             "steps": [
