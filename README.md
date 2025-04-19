@@ -1,9 +1,8 @@
-# Guardian
+# Guardian ![PyPI - Version](https://img.shields.io/pypi/v/guardian-ai)![PyPI - Downloads](https://img.shields.io/pypi/dm/guardian-ai)![NPM Version](https://img.shields.io/npm/v/guardian-ai)![NPM Downloads](https://img.shields.io/npm/d18m/guardian-ai)
 
 > An open-source ethical telemetry and governance platform for AI applications
 
 <img width="1208" alt="Screenshot 2025-04-19 at 12 45 35 AM" src="https://github.com/user-attachments/assets/691233cb-8761-4677-9fa2-49f1277af9e7" />
-
 
 ## Why Guardian?
 
