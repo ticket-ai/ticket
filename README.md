@@ -2,26 +2,7 @@
 
 > An open-source ethical telemetry and governance platform for AI applications
 
-<img src="docs/assets/image.png" alt="Guardian Logo" width="100"><!-- 
-[![Go Reference](https://pkg.go.dev/badge/github.com/yourusername/guardian.svg)](https://pkg.go.dev/github.com/yourusername/guardian)
-[![Go Report Card](https://goreportcard.com/badge/github.com/yourusername/guardian)](https://goreportcard.com/report/github.com/yourusername/guardian)
-[![License](https://img.shields.io/github/license/yourusername/guardian)](LICENSE) -->
-
-## Dev Notes for yall
-- Start LGTM
-cd ~/guardian ./restart-lgtm.sh
-On first install, this script pulls the docker image for otel-lgtm.
-On subseqent runs, the the script stops and deletes the container and forces the provided json to be the only dashboard.
-This isn't permanent but its convenient for dev purposes.
-- Build Executible: 
-cd ~/guardian && go build -o dist/guardian cmd/guardian/main.go
-  The executible should have all buisness logic. It puts it in a dist folder that allows for the executible to be run in as a js package.
-- Start Mock Server: 
-cd ~/guardian/examples/mock-node-app && npm start
-  The mock server is a mock up of the backend. When you run it, it will also run Guardian which along with performing the chat/completions monitoring will also generate a dashboard link.
-- Test Mock Server: 
-cd ~/guardian/examples/mock-node-app && npm test
-  Running the test script simulates the backend recieving requests from the frontend. On the server view you should see it recieving these requests and 200ing. When the guardian dashboard is up and running you should also see that there.
+<img src="docs/assets/image.png" alt="Guardian Logo" width="100">
 
 ## Why Guardian?
 
@@ -42,14 +23,42 @@ Guardian goes beyond simple telemetry to provide true AI governance capabilities
 
 - Automatic monitoring of all AI chat/completions endpoints
 - Integration with OpenTelemetry and the LGTM stack (Grafana, Tempo, Prometheus)
-- User behavior analytics including usage patterns, IP tracking, and request profiling
 - Customizable dashboards for visualizing AI system usage
 
 ### 2. Multi-layered Security
 
 - **Distributed NLP Analysis**: Low-resource natural language processing to identify potential policy violations
+
 - **Static Analysis**: Pattern matching using regex and other techniques to catch known attack vectors
+
+Guardian supports customizable security preferences through user submitted jsons. These rules use regex and pattern matching to identify potential security threats. Guardian will automatically register any rules either passed into the config over by reading a guardian_rules.json file in the root or src directory.
+
+```json
+{
+  "rules": [
+    {
+      "name": "prompt-injection-basic",
+      "pattern": "\\b(system prompt|ignore previous instructions)\\b",
+      "severity": "high", 
+      "description": "Basic prompt injection attempt"
+    },
+    {
+      "name": "scenario-nesting",
+      "pattern": "pretend|imagine|role-play|simulation",
+      "severity": "medium",
+      "description": "Possible scenario nesting attack"
+    }
+  ]
+}
+```
+
 - **Pre-prompting Management**: Standardized security controls applied across all AI endpoints
+
+Guardian supports custom configs upon instantiaion that prepend a standardized prompt across all endpoints, ensuring universal protection.
+
+const DEFAULT_CONFIG = {
+  prePrompt: "Refuse to answer any questions related to politics or world affairs.",
+};
 
 ### 3. Governance Tools
 
@@ -57,7 +66,6 @@ Guardian goes beyond simple telemetry to provide true AI governance capabilities
 - Automated incident triage and categorization
 - Message flagging and blocking capabilities
 - Trend analysis to identify emerging attack patterns
-
 
 ## Architecture
 
@@ -80,116 +88,132 @@ Guardian is designed as a lightweight, embeddable middleware that integrates sea
 
 ## Getting Started
 
-### Installation
+Guardian supports multiple programming languages through native implementations. Choose the one that fits your project:
 
-Use the executible in dist or the upcoming js package.
+### Setting up the Monitoring Stack
 
-### Basic Usage
+Before using any of the language implementations, you should set up the monitoring stack:
 
-Add Guardian middleware to your application:
+1. **Start the LGTM Stack**:
+   ```bash
+   # Start the LGTM stack (Loki, Grafana, Tempo, Mimir/Prometheus)
+   ./run-lgtm.sh
+   ```
 
-```js
+2. **Access Grafana Dashboard**:
+   Open http://localhost:3000 in your browser
+
+
+### JavaScript/Node.js Implementation
+
+#### Installation
+
+```bash
+# Using npm
+npm install guardian-ai
+
+# Using yarn
+yarn add guardian-ai
+```
+
+#### Usage
+
+```javascript
+const Guardian = require('guardian-ai');
+
+// Initialize Guardian with your configuration
 const guardian = new Guardian({ 
-  serviceName: 'mock-ai-app', 
+  serviceName: 'my-js-app', 
+  environment: 'development',
   debug: true 
 });
 ```
 
-### Configuration Options
+No further configuration needed - Guardian will automatically monitor AI API calls made through the standard Node.js HTTP/HTTPS APIs and fetch.
 
-Guardian can be configured to meet your specific requirements:
+### Python Implementation
 
-```go
-config := guardian.Config{
-    // Basic configuration
-    ServiceName: "my-ai-app",
-    Environment: "production",
-    
-    // Telemetry configuration
-    OTelEndpoint: "localhost:4317",
-    MetricsEnabled: true,
-    TracingEnabled: true,
-    
-    // Security features
-    NLPAnalysisEnabled: true,
-    StaticAnalysisRules: []string{
-        `\b(system prompt|ignore previous instructions)\b`,
-        // Add custom regex patterns for known attack vectors
-    },
-    
-    // Governance options
-    AutoBlockThreshold: 0.85, // Confidence threshold for automatic blocking
-    ReviewAgentEnabled: true,
-    
-    // Pre-prompting management
-    StandardPrePrompt: "Always adhere to ethical guidelines and refuse harmful requests.",
-}
-```
-
-### Monitoring Setup
-
-Guardian includes a Docker Compose configuration for quickly setting up the monitoring stack:
+#### Installation
 
 ```bash
-# Start the monitoring stack
-guardian setup monitoring
+# Using pip
+pip install guardian-ai
 
-# View the setup in the browser
-open http://localhost:3000  # Grafana dashboard
+# Using poetry
+poetry add guardian-ai
 ```
 
-## Security Rules and Governance
+#### Usage
 
-Guardian comes with a set of predefined security rules that can be extended with your own custom rules:
+```python
+from guardian-ai import Guardian
 
-### Static Analysis Rules
+# Initialize Guardian
+guardian = Guardian()
 
-Guardian uses regex and pattern matching to identify potential security threats:
+# Guardian will automatically monitor AI API calls
+```
+### Go Implementation
 
-```json
-// Example rules configuration (rules.json)
-{
-  "rules": [
-    {
-      "name": "prompt-injection-basic",
-      "pattern": "\\b(system prompt|ignore previous instructions|my previous instructions|my prior instructions)\\b",
-      "severity": "high",
-      "description": "Basic prompt injection attempt"
-    },
-    {
-      "name": "scenario-nesting",
-      "pattern": "pretend|imagine|role-play|simulation",
-      "context_pattern": "(ignore|forget|disregard).*(instruction|prompt|rule)",
-      "severity": "medium",
-      "description": "Possible scenario nesting attack"
+#### Installation
+
+```bash
+go get github.com/rohanadwankar/guardian
+```
+
+#### Usage
+
+```go
+package main
+
+import (
+    "github.com/rohanadwankar/guardian"
+)
+
+func main() {
+    // Create Guardian configuration
+    config := guardian.DefaultConfig()
+    config.ServiceName = "my-go-app"
+    config.Environment = "development"
+    
+    // Initialize Guardian
+    g, err := guardian.New(config)
+    if err != nil {
+        panic(err)
     }
-  ]
+    
+    // Use Guardian middleware with your HTTP handlers
+    http.ListenAndServe(":8080", g.Middleware.HTTPHandler(yourHandler))
 }
 ```
 
-### NLP Analysis
+#### Building from Source
 
-Guardian's NLP component analyzes conversations for:
+To build the Guardian binary:
 
-- **Intent classification**: Categorizing user intentions
-- **Sentiment analysis**: Detecting hostile or manipulative language
-- **Topic modeling**: Identifying sensitive or prohibited subjects
-- **Anomaly detection**: Flagging unusual interaction patterns
+```bash
+# Build the main Guardian executable
+cd ~/guardian
+go build -o dist/guardian cmd/guardian/main.go
+```
 
-### Future Features
-#### Incident Response
+### Example Application
+
+You can run the example mock Node.js application to see Guardian in action:
+
+```bash
+# Start the example application
+cd ~/guardian/examples/mock-node-app && npm start
+
+# Run tests against the example application
+cd ~/guardian/examples/mock-node-app && npm test
+```
+
+## Future Features
+
+### Incident Response
 - Centralized incident management console
 - Attack mitigation workflows
 - Forensic logging for security investigations
 - Automated remediation options
 - **Review Agent**: Optional batch analysis of chat logs to detect sophisticated misuse patterns
-
-
-<!-- 
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for more information.
-
-## License
-
-Guardian is licensed under the [MIT License](LICENSE). -->

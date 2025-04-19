@@ -33,7 +33,7 @@ guardian = Guardian({
 app.add_middleware(guardian.create_fastapi_middleware())
 
 # Configuration
-MOCK_LLM_URL = "http://localhost:3457"  # Updated to use port 3457 for Python mock LLM
+MOCK_LLM_URL = "http://localhost:3457"
 
 @app.get("/")
 async def read_root():
@@ -75,7 +75,7 @@ async def get_blocked_ips():
     return {"blocked_ips": []}
 
 if __name__ == "__main__":
-    PORT = 3002  # Updated to use port 3002 for Python FastAPI server
+    PORT = 3002
     print(f"Server running at http://localhost:{PORT}")
     print(f"Using Mock LLM at {MOCK_LLM_URL}")
     uvicorn.run(app, host="0.0.0.0", port=PORT)
