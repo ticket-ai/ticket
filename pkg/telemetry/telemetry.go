@@ -58,25 +58,41 @@ type Event struct {
 	EstimatedCost float64
 	RequestData   map[string]interface{}
 	ResponseData  map[string]interface{}
-	MatchedRules  []analyzer.Rule // Added field to store matched rules
+	MatchedRules  []analyzer.Rule // Store matched rules
+
+	// NLP Analysis Metrics
+	NLPMetrics analyzer.NLPMetrics // All NLP metrics from analyzer
 }
 
 // Client handles all telemetry operations.
 type Client struct {
-	config               Config
-	meter                metric.Meter
-	tracer               trace.Tracer
-	metricExporter       sdkmetric.Exporter
-	traceExporter        sdktrace.SpanExporter
-	meterProvider        *sdkmetric.MeterProvider
-	tracerProvider       *sdktrace.TracerProvider
+	config         Config
+	meter          metric.Meter
+	tracer         trace.Tracer
+	metricExporter sdkmetric.Exporter
+	traceExporter  sdktrace.SpanExporter
+	meterProvider  *sdkmetric.MeterProvider
+	tracerProvider *sdktrace.TracerProvider
+
+	// Existing metrics
 	requestCounter       metric.Int64Counter
 	blockedCounter       metric.Int64Counter
 	latencyHistogram     metric.Float64Histogram
 	inputTokensCounter   metric.Int64Counter
 	outputTokensCounter  metric.Int64Counter
 	estimatedCostCounter metric.Float64Counter
-	flaggedCounter       metric.Int64Counter // Added counter for flagged requests
+	flaggedCounter       metric.Int64Counter
+
+	// NLP metrics
+	sentimentGauge        metric.Float64UpDownCounter // Can be negative
+	toxicityHistogram     metric.Float64Histogram
+	piiHistogram          metric.Float64Histogram
+	profanityHistogram    metric.Float64Histogram
+	biasHistogram         metric.Float64Histogram
+	emotionalHistogram    metric.Float64Histogram
+	manipulativeHistogram metric.Float64Histogram
+	jailbreakHistogram    metric.Float64Histogram
+	keywordCounter        metric.Int64Counter // For counting keyword occurrences
 }
 
 // New creates a new telemetry client with OpenTelemetry instrumentation.
@@ -128,12 +144,16 @@ func (c *Client) setupMetrics(res *resource.Resource) error {
 		return fmt.Errorf("failed to create gRPC connection to collector: %w", err)
 	}
 
+	fmt.Printf("Successfully created gRPC connection to %s\n", c.config.OTelEndpoint)
+
 	// Create the OTLP exporter
 	metricExporter, err := otlpmetricgrpc.New(ctx,
 		otlpmetricgrpc.WithGRPCConn(conn))
 	if err != nil {
 		return fmt.Errorf("failed to create OTLP metric exporter: %w", err)
 	}
+
+	fmt.Printf("Successfully created OTLP metric exporter\n")
 
 	// Create MeterProvider with the exporter
 	meterProvider := sdkmetric.NewMeterProvider(
@@ -142,6 +162,8 @@ func (c *Client) setupMetrics(res *resource.Resource) error {
 			// Default is 60s, reduce for faster metrics visibility during development
 			sdkmetric.WithInterval(1*time.Second))),
 	)
+
+	fmt.Printf("Successfully created MeterProvider\n")
 
 	// Set the global MeterProvider
 	otel.SetMeterProvider(meterProvider)
@@ -152,53 +174,161 @@ func (c *Client) setupMetrics(res *resource.Resource) error {
 		metric.WithInstrumentationVersion(c.Version()),
 	)
 
+	fmt.Printf("Successfully created Meter\n")
+
 	// Initialize the metrics with Prometheus-compatible naming (using underscores instead of dots)
 	var err1, err2, err3, err4, err5, err6, err7 error
+
+	// Basic metrics
 	c.requestCounter, err1 = meter.Int64Counter(
 		"guardian_requests_total",
 		metric.WithDescription("Total number of AI requests processed"),
 	)
+	if err1 != nil {
+		return fmt.Errorf("failed to create requestCounter: %w", err1)
+	}
 
 	c.blockedCounter, err2 = meter.Int64Counter(
 		"guardian_requests_blocked_total",
 		metric.WithDescription("Total number of AI requests blocked"),
 	)
+	if err2 != nil {
+		return fmt.Errorf("failed to create blockedCounter: %w", err2)
+	}
 
 	c.latencyHistogram, err3 = meter.Float64Histogram(
 		"guardian_request_duration_seconds",
 		metric.WithDescription("Latency of AI requests in seconds"),
 		metric.WithUnit("s"),
 	)
+	if err3 != nil {
+		return fmt.Errorf("failed to create latencyHistogram: %w", err3)
+	}
 
 	c.inputTokensCounter, err4 = meter.Int64Counter(
 		"guardian_input_tokens_total",
 		metric.WithDescription("Total number of estimated input tokens processed"),
 		metric.WithUnit("{token}"),
 	)
+	if err4 != nil {
+		return fmt.Errorf("failed to create inputTokensCounter: %w", err4)
+	}
 
 	c.outputTokensCounter, err5 = meter.Int64Counter(
 		"guardian_output_tokens_total",
 		metric.WithDescription("Total number of estimated output tokens generated"),
 		metric.WithUnit("{token}"),
 	)
+	if err5 != nil {
+		return fmt.Errorf("failed to create outputTokensCounter: %w", err5)
+	}
 
 	c.estimatedCostCounter, err6 = meter.Float64Counter(
 		"guardian_estimated_cost_USD_total",
 		metric.WithDescription("Estimated cost of AI requests based on token usage"),
 		metric.WithUnit("USD"),
 	)
+	if err6 != nil {
+		return fmt.Errorf("failed to create estimatedCostCounter: %w", err6)
+	}
 
 	c.flaggedCounter, err7 = meter.Int64Counter(
 		"guardian_flagged_requests_total",
 		metric.WithDescription("Total number of AI requests flagged by rules"),
 	)
-
-	// Check for errors in creating instruments
-	for _, err := range []error{err1, err2, err3, err4, err5, err6, err7} {
-		if err != nil {
-			return fmt.Errorf("failed to create metric instruments: %w", err)
-		}
+	if err7 != nil {
+		return fmt.Errorf("failed to create flaggedCounter: %w", err7)
 	}
+
+	fmt.Printf("Successfully created basic metrics\n")
+
+	// Initialize NLP metrics
+	fmt.Printf("Starting NLP metrics initialization\n")
+	var nlpErr1, nlpErr2, nlpErr3, nlpErr4, nlpErr5, nlpErr6, nlpErr7, nlpErr8 error
+
+	// Sentiment can be negative, so we use an UpDownCounter
+	c.sentimentGauge, nlpErr1 = meter.Float64UpDownCounter(
+		"guardian_nlp_sentiment",
+		metric.WithDescription("Sentiment analysis score from -1.0 (negative) to 1.0 (positive)"),
+	)
+	if nlpErr1 != nil {
+		return fmt.Errorf("failed to create sentimentGauge: %w", nlpErr1)
+	}
+	fmt.Printf("Created sentiment gauge\n")
+
+	c.toxicityHistogram, nlpErr2 = meter.Float64Histogram(
+		"guardian_nlp_toxicity",
+		metric.WithDescription("Distribution of toxicity scores from 0.0 (not toxic) to 1.0 (very toxic)"),
+	)
+	if nlpErr2 != nil {
+		return fmt.Errorf("failed to create toxicityHistogram: %w", nlpErr2)
+	}
+	fmt.Printf("Created toxicity histogram\n")
+
+	c.piiHistogram, nlpErr3 = meter.Float64Histogram(
+		"guardian_nlp_pii_detection",
+		metric.WithDescription("Distribution of PII detection scores from 0.0 (no PII) to 1.0 (definite PII)"),
+	)
+	if nlpErr3 != nil {
+		return fmt.Errorf("failed to create piiHistogram: %w", nlpErr3)
+	}
+	fmt.Printf("Created PII histogram\n")
+
+	c.profanityHistogram, nlpErr4 = meter.Float64Histogram(
+		"guardian_nlp_profanity",
+		metric.WithDescription("Distribution of profanity scores from 0.0 (no profanity) to 1.0 (high profanity)"),
+	)
+	if nlpErr4 != nil {
+		return fmt.Errorf("failed to create profanityHistogram: %w", nlpErr4)
+	}
+	fmt.Printf("Created profanity histogram\n")
+
+	c.biasHistogram, nlpErr5 = meter.Float64Histogram(
+		"guardian_nlp_bias",
+		metric.WithDescription("Distribution of bias scores from 0.0 (unbiased) to 1.0 (highly biased)"),
+	)
+	if nlpErr5 != nil {
+		return fmt.Errorf("failed to create biasHistogram: %w", nlpErr5)
+	}
+	fmt.Printf("Created bias histogram\n")
+
+	c.emotionalHistogram, nlpErr6 = meter.Float64Histogram(
+		"guardian_nlp_emotional",
+		metric.WithDescription("Distribution of emotional content scores from 0.0 (not emotional) to 1.0 (highly emotional)"),
+	)
+	if nlpErr6 != nil {
+		return fmt.Errorf("failed to create emotionalHistogram: %w", nlpErr6)
+	}
+	fmt.Printf("Created emotional histogram\n")
+
+	c.manipulativeHistogram, nlpErr7 = meter.Float64Histogram(
+		"guardian_nlp_manipulative",
+		metric.WithDescription("Distribution of manipulative content scores from 0.0 (not manipulative) to 1.0 (highly manipulative)"),
+	)
+	if nlpErr7 != nil {
+		return fmt.Errorf("failed to create manipulativeHistogram: %w", nlpErr7)
+	}
+	fmt.Printf("Created manipulative histogram\n")
+
+	c.jailbreakHistogram, nlpErr8 = meter.Float64Histogram(
+		"guardian_nlp_jailbreak",
+		metric.WithDescription("Distribution of jailbreak intent scores from 0.0 (no jailbreak intent) to 1.0 (definite jailbreak)"),
+	)
+	if nlpErr8 != nil {
+		return fmt.Errorf("failed to create jailbreakHistogram: %w", nlpErr8)
+	}
+	fmt.Printf("Created jailbreak histogram\n")
+
+	c.keywordCounter, err = meter.Int64Counter(
+		"guardian_nlp_keywords_total",
+		metric.WithDescription("Count of specific keywords detected in content"),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create keywordCounter: %w", err)
+	}
+	fmt.Printf("Created keyword counter\n")
+
+	fmt.Printf("All NLP metrics initialized successfully\n")
 
 	// Store our instances
 	c.meter = meter
@@ -278,8 +408,8 @@ func (c *Client) RecordEvent(ctx context.Context, event Event) error {
 		attribute.Int("guardian.tokens.input", event.InputTokens),
 		attribute.Int("guardian.tokens.output", event.OutputTokens),
 		attribute.Float64("guardian.estimated_cost", event.EstimatedCost),
-		attribute.Bool("guardian.blocked", event.Blocked),         // Added blocked status attribute
-		attribute.Float64("guardian.analysis_score", event.Score), // Added analysis score attribute
+		attribute.Bool("guardian.blocked", event.Blocked),
+		attribute.Float64("guardian.analysis_score", event.Score),
 	}
 
 	// Add attributes for matched rules
@@ -292,6 +422,19 @@ func (c *Client) RecordEvent(ctx context.Context, event Event) error {
 		)
 	}
 	attrs = append(attrs, ruleAttrs...)
+
+	// Add NLP metrics as attributes for better filtering in dashboards
+	nlpAttrs := []attribute.KeyValue{
+		attribute.Float64("guardian.nlp.sentiment", event.NLPMetrics.Sentiment),
+		attribute.Float64("guardian.nlp.toxicity", event.NLPMetrics.Toxicity),
+		attribute.Float64("guardian.nlp.pii", event.NLPMetrics.PII),
+		attribute.Float64("guardian.nlp.profanity", event.NLPMetrics.Profanity),
+		attribute.Float64("guardian.nlp.bias", event.NLPMetrics.Bias),
+		attribute.Float64("guardian.nlp.emotional", event.NLPMetrics.Emotional),
+		attribute.Float64("guardian.nlp.manipulative", event.NLPMetrics.Manipulative),
+		attribute.Float64("guardian.nlp.jailbreak_intent", event.NLPMetrics.JailbreakIntent),
+	}
+	attrs = append(attrs, nlpAttrs...)
 
 	// Add UserID if available
 	if event.UserID != "" {
@@ -325,6 +468,28 @@ func (c *Client) RecordEvent(ctx context.Context, event Event) error {
 			flaggedAttrs := attrs // Already contains rule attributes
 			c.flaggedCounter.Add(ctx, 1, metric.WithAttributes(flaggedAttrs...))
 		}
+
+		// Record NLP metrics
+		// For sentiment we record the actual value (-1.0 to 1.0)
+		c.sentimentGauge.Add(ctx, event.NLPMetrics.Sentiment, metric.WithAttributes(attrs...))
+
+		// For all other metrics, we record the distribution
+		c.toxicityHistogram.Record(ctx, event.NLPMetrics.Toxicity, metric.WithAttributes(attrs...))
+		c.piiHistogram.Record(ctx, event.NLPMetrics.PII, metric.WithAttributes(attrs...))
+		c.profanityHistogram.Record(ctx, event.NLPMetrics.Profanity, metric.WithAttributes(attrs...))
+		c.biasHistogram.Record(ctx, event.NLPMetrics.Bias, metric.WithAttributes(attrs...))
+		c.emotionalHistogram.Record(ctx, event.NLPMetrics.Emotional, metric.WithAttributes(attrs...))
+		c.manipulativeHistogram.Record(ctx, event.NLPMetrics.Manipulative, metric.WithAttributes(attrs...))
+		c.jailbreakHistogram.Record(ctx, event.NLPMetrics.JailbreakIntent, metric.WithAttributes(attrs...))
+
+		// Record detected keywords
+		for keyword, confidence := range event.NLPMetrics.Keywords {
+			keywordAttrs := append(attrs,
+				attribute.String("guardian.nlp.keyword", keyword),
+				attribute.Float64("guardian.nlp.confidence", confidence),
+			)
+			c.keywordCounter.Add(ctx, 1, metric.WithAttributes(keywordAttrs...))
+		}
 	}
 
 	// Record span if tracing is enabled
@@ -339,6 +504,12 @@ func (c *Client) RecordEvent(ctx context.Context, event Event) error {
 		for i, reason := range event.Reasons {
 			span.SetAttributes(attribute.String(fmt.Sprintf("reason.%d", i), reason))
 		}
+
+		// Add NLP metrics to span
+		span.SetAttributes(attribute.Float64("guardian.nlp.sentiment", event.NLPMetrics.Sentiment))
+		span.SetAttributes(attribute.Float64("guardian.nlp.toxicity", event.NLPMetrics.Toxicity))
+		span.SetAttributes(attribute.Float64("guardian.nlp.pii", event.NLPMetrics.PII))
+		span.SetAttributes(attribute.Float64("guardian.nlp.jailbreak_intent", event.NLPMetrics.JailbreakIntent))
 
 		if event.Blocked {
 			span.SetStatus(codes.Error, "Request blocked by Guardian")

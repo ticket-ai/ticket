@@ -45,6 +45,13 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o "${OUTPUT_D
 echo "Building for Windows (arm64)..."
 GOOS=windows GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w" -o "${OUTPUT_DIR}/win32-arm64/${BINARY_NAME}.exe" ${MAIN_GO}
 
+# Copy built binaries to Python distribution directory
+echo "Copying built binaries to dist_python/bin..."
+PY_OUTPUT_DIR="dist_python/bin"
+mkdir -p "${PY_OUTPUT_DIR}"
+rm -rf "${PY_OUTPUT_DIR}"/*
+cp -R "${OUTPUT_DIR}/." "${PY_OUTPUT_DIR}/"
+
 # Create archives for GitHub release
 echo "Creating archives for GitHub release..."
 mkdir -p release

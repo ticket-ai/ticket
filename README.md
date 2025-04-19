@@ -193,13 +193,12 @@ To build the Guardian binary:
 
 ```bash
 # Build the main Guardian executable
-cd ~/guardian
-go build -o dist/guardian cmd/guardian/main.go
+cd ~/guardian && bash build-binaries.sh
 ```
 
 ### Example Application
 
-You can run the example mock Node.js application to see Guardian in action:
+You can run the example Node.js application to see Guardian in action:
 
 ```bash
 # Start the example application
@@ -207,6 +206,16 @@ cd ~/guardian/examples/mock-node-app && npm start
 
 # Run tests against the example application
 cd ~/guardian/examples/mock-node-app && npm test
+```
+
+You can also run the example Python application:
+
+```bash
+# Start the example application
+cd ~/guardian/examples/mock-python-app && python src/run.py
+
+# Run tests against the example application
+cd ~/guardian/examples/mock-python-app && python src/client_test.py
 ```
 
 ## Future Features

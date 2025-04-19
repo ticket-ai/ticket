@@ -4,3 +4,4 @@ docker-otel-lgtm/
 .env
 /examples/mock-python-app/src/__pycache__
 /dist_python/guardian_ai/guardian_ai/__pycache__
+problematic.json

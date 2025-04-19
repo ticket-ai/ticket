@@ -107,6 +107,7 @@ func (m *Middleware) HTTPHandler(next http.Handler) http.Handler {
 			InputTokens: inputTokens, // Add input tokens
 			// RequestData: map[string]interface{}{"body": requestBodyStr}, // Optionally include full body
 			MatchedRules: analysisResult.MatchedRules, // Pass matched rules
+			NLPMetrics:   analysisResult.NLPMetrics,   // Pass all NLP metrics
 		}
 
 		// --- Blocking --- (If analysis determines blocking)
