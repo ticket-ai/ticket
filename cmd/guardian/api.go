@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/rohanadwankar/guardian"
+	"github.com/rohanadwankar/guardian/pkg/telemetry"
 )
 
 // FlaggedRequest represents a request that was flagged by Guardian rules
@@ -21,43 +24,25 @@ type FlaggedRequest struct {
 	Cost         float64   `json:"cost"`
 }
 
-// getFlaggedRequests retrieves flagged requests from the Guardian instance
-// This is a simple implementation that should be enhanced based on how you store flagged requests
-func getFlaggedRequests(g *guardian.Guardian) []FlaggedRequest {
-	// This is a placeholder implementation
-	// You need to implement this based on how your Guardian stores flagged requests
-
-	// If Guardian has a method to get flagged requests, use it
-	// Example: return g.GetFlaggedRequests()
-
-	// For now, return mock data for testing
-	mockData := []FlaggedRequest{
-		{
-			Timestamp:    time.Now().Add(-5 * time.Minute),
-			IP:           "192.168.1.1",
-			Endpoint:     "/v1/chat/completions",
-			Method:       "POST",
-			Score:        0.85,
-			MatchedRules: []string{"Ignore Instructions Pattern"},
-			InputTokens:  150,
-			OutputTokens: 50,
-			Cost:         0.002,
-		},
-		{
-			Timestamp:    time.Now().Add(-10 * time.Minute),
-			IP:           "192.168.1.2",
-			Endpoint:     "/v1/chat/completions",
-			Method:       "POST",
-			Score:        0.95,
-			MatchedRules: []string{"Attempted Hacking Keywords"},
-			InputTokens:  200,
-			OutputTokens: 0, // Blocked, no output
-			Cost:         0.0005,
-		},
-	}
-
-	return mockData
+// TelemetryStats represents stats from the telemetry system
+type TelemetryStats struct {
+	TotalRequests    int            `json:"totalRequests"`
+	FlaggedRequests  int            `json:"flaggedRequests"`
+	BlockedRequests  int            `json:"blockedRequests"`
+	AverageScore     float64        `json:"averageScore"`
+	EstimatedCost    float64        `json:"estimatedCost"`
+	ToxicityScores   []float64      `json:"toxicityScores"`
+	ProfanityScores  []float64      `json:"profanityScores"`
+	PIIScores        []float64      `json:"piiScores"`
+	BiasScores       []float64      `json:"biasScores"`
+	RequestsPerModel map[string]int `json:"requestsPerModel"`
 }
+
+// In-memory cache of flagged requests
+var (
+	flaggedRequests = make([]FlaggedRequest, 0, 100)
+	flaggedMutex    = sync.RWMutex{}
+)
 
 // Add API endpoints to the handler
 func addAPIEndpoints(handler *http.ServeMux, g *guardian.Guardian) {
@@ -66,10 +51,95 @@ func addAPIEndpoints(handler *http.ServeMux, g *guardian.Guardian) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Content-Type", "application/json")
 
-		// Get flagged requests from the middleware
-		flaggedRequests := getFlaggedRequests(g)
+		flaggedMutex.RLock()
+		defer flaggedMutex.RUnlock()
 		json.NewEncoder(w).Encode(flaggedRequests)
 	})
 
-	// Add more API endpoints as needed...
+	// API endpoint for telemetry statistics
+	handler.HandleFunc("/_guardian/api/stats", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Content-Type", "application/json")
+
+		// Access the telemetry client from guardian
+		telemetryClient := g.GetTelemetryClient()
+		if telemetryClient == nil {
+			http.Error(w, "Telemetry client not available", http.StatusInternalServerError)
+			return
+		}
+
+		// Get stats from telemetry
+		stats := getTelemetryStats(telemetryClient)
+		json.NewEncoder(w).Encode(stats)
+	})
+
+	// API endpoint for real-time metrics
+	handler.HandleFunc("/_guardian/api/metrics", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Content-Type", "application/json")
+
+		// Get metrics data from telemetry or guardian instance
+		metrics := getMetricsData(g)
+		json.NewEncoder(w).Encode(metrics)
+	})
+}
+
+// Get telemetry stats from the telemetry client
+// In your api.go file or a new file specifically for telemetry API
+func getTelemetryStats(client *telemetry.Client) TelemetryStats {
+	// Create context for metrics retrieval
+	ctx := context.Background()
+
+	// This is where you'd pull actual data from your telemetry system
+	// For example:
+	totalRequests := client.GetTotalRequests(ctx)
+	flaggedRequests := client.GetFlaggedRequests(ctx)
+	blockCount := client.GetBlockedRequests(ctx)
+	avgScore := client.GetAverageScore(ctx)
+	estimatedCost := client.GetEstimatedCost(ctx)
+
+	// Get NLP scores (depending on how they're stored in your telemetry system)
+	toxicityScores := client.GetRecentToxicityScores(ctx, 100)
+	profanityScores := client.GetRecentProfanityScores(ctx, 100)
+	piiScores := client.GetRecentPIIScores(ctx, 100)
+	biasScores := client.GetRecentBiasScores(ctx, 100)
+
+	// Get model usage
+	modelUsage := client.GetRequestsPerModel(ctx)
+
+	return TelemetryStats{
+		TotalRequests:    totalRequests,
+		FlaggedRequests:  flaggedRequests,
+		BlockedRequests:  blockCount,
+		AverageScore:     avgScore,
+		EstimatedCost:    estimatedCost,
+		ToxicityScores:   toxicityScores,
+		ProfanityScores:  profanityScores,
+		PIIScores:        piiScores,
+		BiasScores:       biasScores,
+		RequestsPerModel: modelUsage,
+	}
+}
+
+// Get real-time metrics data
+func getMetricsData(g *guardian.Guardian) map[string]interface{} {
+	// Placeholder for real metrics data
+	return map[string]interface{}{
+		"requestsPerSecond": 2.5,
+		"latencyMs":         245,
+		"cpuUsage":          12.3,
+		"memoryUsageMB":     156,
+	}
+}
+
+// Record a flagged request for the API
+func recordFlaggedRequest(req FlaggedRequest) {
+	flaggedMutex.Lock()
+	defer flaggedMutex.Unlock()
+
+	// Keep only the newest 100 requests
+	if len(flaggedRequests) >= 100 {
+		flaggedRequests = flaggedRequests[1:]
+	}
+	flaggedRequests = append(flaggedRequests, req)
 }

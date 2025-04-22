@@ -139,6 +139,11 @@ func Version() string {
 	return "0.1.0-alpha"
 }
 
+// In your guardian.go
+func (g *Guardian) GetTelemetryClient() *telemetry.Client {
+	return g.Telemetry
+}
+
 // RecordCompletionRequest records a completion request for monitoring.
 // This sends data to OpenTelemetry.
 func (g *Guardian) RecordCompletionRequest(method, endpoint, status string, latencyMs int, ip string) {
