@@ -2,7 +2,7 @@
 const axios = require('axios');
 
 // Base API URL
-const API_URL = 'http://localhost:3001';
+const API_URL = 'http://localhost:3002';
 
 // Simple test prompts
 const testPrompts = [

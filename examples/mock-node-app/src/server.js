@@ -11,7 +11,7 @@ const guardian = new Guardian({
 });
 
 const app = express();
-const PORT = 3001;
+const PORT = 3002;
 const MOCK_LLM_URL = 'http://localhost:3456';
 
 app.use(express.json());

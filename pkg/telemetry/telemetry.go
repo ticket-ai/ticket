@@ -545,3 +545,69 @@ func (c *Client) Shutdown() error {
 
 	return nil
 }
+
+// GetTotalRequests returns the total number of requests processed
+func (c *Client) GetTotalRequests(ctx context.Context) int {
+	// For a proper implementation, you'd maintain a counter or fetch from your metrics system
+	return 200 // Placeholder value
+}
+
+// GetFlaggedRequests returns the number of flagged requests
+func (c *Client) GetFlaggedRequests(ctx context.Context) int {
+	// For a proper implementation, you'd maintain a counter or fetch from your metrics system
+	return 15 // Placeholder value
+}
+
+// GetEstimatedCost returns the total estimated cost
+func (c *Client) GetEstimatedCost(ctx context.Context) float64 {
+	// For a proper implementation, you'd maintain a running sum or fetch from your metrics system
+	return 12.50 // Placeholder value
+}
+
+// GetRecentToxicityScores returns recent toxicity scores
+func (c *Client) GetRecentToxicityScores(ctx context.Context, limit int) []float64 {
+	// In a real implementation, you'd maintain a circular buffer or other data structure
+	return []float64{0.1, 0.2, 0.3, 0.4, 0.5} // Placeholder
+}
+
+// Add these functions after the existing GetRecentToxicityScores method
+
+// GetBlockedRequests returns the number of blocked requests
+func (c *Client) GetBlockedRequests(ctx context.Context) int {
+	// For a proper implementation, you'd maintain a counter or fetch from your metrics system
+	return 5 // Placeholder value
+}
+
+// GetAverageScore returns the average analysis score
+func (c *Client) GetAverageScore(ctx context.Context) float64 {
+	// For a proper implementation, you'd calculate this from accumulated scores
+	return 0.42 // Placeholder value
+}
+
+// GetRecentProfanityScores returns recent profanity scores
+func (c *Client) GetRecentProfanityScores(ctx context.Context, limit int) []float64 {
+	// In a real implementation, you'd maintain a circular buffer or other data structure
+	return []float64{0.05, 0.15, 0.0, 0.2, 0.1} // Placeholder
+}
+
+// GetRecentPIIScores returns recent PII detection scores
+func (c *Client) GetRecentPIIScores(ctx context.Context, limit int) []float64 {
+	// In a real implementation, you'd maintain a circular buffer or other data structure
+	return []float64{0.0, 0.1, 0.3, 0.05, 0.0} // Placeholder
+}
+
+// GetRecentBiasScores returns recent bias scores
+func (c *Client) GetRecentBiasScores(ctx context.Context, limit int) []float64 {
+	// In a real implementation, you'd maintain a circular buffer or other data structure
+	return []float64{0.1, 0.15, 0.2, 0.05, 0.1} // Placeholder
+}
+
+// GetRequestsPerModel returns the count of requests per model
+func (c *Client) GetRequestsPerModel(ctx context.Context) map[string]int {
+	// In a real implementation, you'd track this per model
+	return map[string]int{
+		"gpt-3.5-turbo": 65,
+		"gpt-4":         25,
+		"claude-2":      10,
+	} // Placeholder
+}
