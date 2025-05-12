@@ -7,7 +7,8 @@ console.log('Guardian path:', guardianPath);
 const Guardian = require(guardianPath);
 const guardian = new Guardian({ 
   serviceName: 'js-app', 
-  debug: true 
+  debug: true,
+  stripeAuthToken: process.env.stripe,
 });
 
 const app = express();
@@ -40,9 +41,6 @@ app.post('/api/chat', async (req, res) => {
     });
   }
 });
-
-app.get('/admin/flagged-users', (req, res) => res.json({ flaggedUsers: [] }));
-app.get('/admin/blocked-ips', (req, res) => res.json({ blockedIPs: [] }));
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
