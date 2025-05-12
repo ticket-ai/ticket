@@ -15,7 +15,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// ONLY the essential endpoint
 app.post('/v1/chat/completions', async (req, res) => {
   console.log(`[Mock LLM] Processing chat completion`);
   
