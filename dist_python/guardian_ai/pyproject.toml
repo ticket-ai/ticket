@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "guardian-ai"
+name = "ticketai"
 version = "0.1.0"
-description = "Guardian AI - Ethical AI Monitoring and Governance Platform for Python"
+description = "AI FinOps for Python"
 authors = ["Rohan Adwankar <rohan.adwankar@gmail.com>"]
 readme = "README.md"
 packages = [{include = "guardian_ai"}]

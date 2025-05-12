@@ -1,7 +1,7 @@
 {
-  "name": "guardian-ai",
+  "name": "ticketai",
   "version": "0.1.0",
-  "description": "An ethical telemetry and governance platform for AI applications",
+  "description": "Ticket for JS",
   "main": "guardian.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
