@@ -158,7 +158,7 @@ guardian = Guardian()
 #### Installation
 
 ```bash
-go get github.com/rohanadwankar/guardian
+go get github.com/ticket-ai/ticket
 ```
 
 #### Usage
@@ -167,17 +167,17 @@ go get github.com/rohanadwankar/guardian
 package main
 
 import (
-    "github.com/rohanadwankar/guardian"
+    "github.com/ticket-ai/ticket"
 )
 
 func main() {
     // Create Guardian configuration
-    config := guardian.DefaultConfig()
+    config := ticket.DefaultConfig()
     config.ServiceName = "my-go-app"
     config.Environment = "development"
     
     // Initialize Guardian
-    g, err := guardian.New(config)
+    g, err := ticket.New(config)
     if err != nil {
         panic(err)
     }
@@ -186,43 +186,3 @@ func main() {
     http.ListenAndServe(":8080", g.Middleware.HTTPHandler(yourHandler))
 }
 ```
-
-#### Building from Source
-
-To build the Guardian binary:
-
-```bash
-# Build the main Guardian executable
-cd ~/guardian && bash build-binaries.sh
-```
-
-### Example Application
-
-You can run the example Node.js application to see Guardian in action:
-
-```bash
-# Start the example application
-cd ~/guardian/examples/mock-node-app && npm start
-
-# Run tests against the example application
-cd ~/guardian/examples/mock-node-app && npm test
-```
-
-You can also run the example Python application:
-
-```bash
-# Start the example application
-cd ~/guardian/examples/mock-python-app && python src/run.py
-
-# Run tests against the example application
-cd ~/guardian/examples/mock-python-app && python src/client_test.py
-```
-
-## Future Features
-
-### Incident Response
-- Centralized incident management console
-- Attack mitigation workflows
-- Forensic logging for security investigations
-- Automated remediation options
-- **Review Agent**: Optional batch analysis of chat logs to detect sophisticated misuse patterns
