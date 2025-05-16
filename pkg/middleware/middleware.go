@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rohanadwankar/guardian/pkg/analyzer"  // Corrected import path
-	"github.com/rohanadwankar/guardian/pkg/telemetry" // Corrected import path
+	"github.com/ticket-ai/ticket/pkg/analyzer"  // Corrected import path
+	"github.com/ticket-ai/ticket/pkg/telemetry" // Corrected import path
 )
 
 // Middleware handles HTTP request interception for Guardian
