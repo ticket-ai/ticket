@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rohanadwankar/guardian/pkg/analyzer" // Import analyzer for Rule type
+	"github.com/ticket-ai/ticket/pkg/analyzer" // Import analyzer for Rule type
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -83,8 +83,17 @@ type Client struct {
 	estimatedCostCounter metric.Float64Counter
 	flaggedCounter       metric.Int64Counter
 
+	// Cost analytics metrics
+	costPerModelCounter    metric.Float64Counter
+	costPerUserCounter     metric.Float64Counter
+	globalBalanceGauge     metric.Float64UpDownCounter
+	userBalanceGauge       metric.Float64UpDownCounter
+	modelUsageCounter      metric.Int64Counter
+	userUsageCounter       metric.Int64Counter
+	throttledRequestsCounter metric.Int64Counter
+
 	// NLP metrics
-	sentimentGauge        metric.Float64UpDownCounter // Can be negative
+	sentimentGauge        metric.Float64UpDownCounter
 	toxicityHistogram     metric.Float64Histogram
 	piiHistogram          metric.Float64Histogram
 	profanityHistogram    metric.Float64Histogram
@@ -92,7 +101,7 @@ type Client struct {
 	emotionalHistogram    metric.Float64Histogram
 	manipulativeHistogram metric.Float64Histogram
 	jailbreakHistogram    metric.Float64Histogram
-	keywordCounter        metric.Int64Counter // For counting keyword occurrences
+	keywordCounter        metric.Int64Counter
 }
 
 // New creates a new telemetry client with OpenTelemetry instrumentation.
@@ -170,14 +179,14 @@ func (c *Client) setupMetrics(res *resource.Resource) error {
 
 	// Create a meter
 	meter := meterProvider.Meter(
-		"github.com/rohanadwankar/guardian",
+		"github.com/ticket-ai/ticket",
 		metric.WithInstrumentationVersion(c.Version()),
 	)
 
 	fmt.Printf("Successfully created Meter\n")
 
 	// Initialize the metrics with Prometheus-compatible naming (using underscores instead of dots)
-	var err1, err2, err3, err4, err5, err6, err7 error
+	var err1, err2, err3, err4, err5, err6, err7, err8, err9, err10, err11, err12 error
 
 	// Basic metrics
 	c.requestCounter, err1 = meter.Int64Counter(
@@ -241,6 +250,51 @@ func (c *Client) setupMetrics(res *resource.Resource) error {
 	}
 
 	fmt.Printf("Successfully created basic metrics\n")
+
+	// Initialize cost analytics metrics
+	c.costPerModelCounter, err8 = meter.Float64Counter(
+		"guardian_cost_per_model_total",
+		metric.WithDescription("Total cost per model in USD"),
+		metric.WithUnit("USD"),
+	)
+	if err8 != nil {
+		return fmt.Errorf("failed to create costPerModelCounter: %w", err8)
+	}
+
+	c.costPerUserCounter, err9 = meter.Float64Counter(
+		"guardian_cost_per_user_total",
+		metric.WithDescription("Total cost per user in USD"),
+		metric.WithUnit("USD"),
+	)
+	if err9 != nil {
+		return fmt.Errorf("failed to create costPerUserCounter: %w", err9)
+	}
+
+	c.globalBalanceGauge, err10 = meter.Float64UpDownCounter(
+		"guardian_global_balance",
+		metric.WithDescription("Total balance across all users in USD"),
+		metric.WithUnit("USD"),
+	)
+	if err10 != nil {
+		return fmt.Errorf("failed to create globalBalanceGauge: %w", err10)
+	}
+
+	c.userBalanceGauge, err11 = meter.Float64UpDownCounter(
+		"guardian_user_balance",
+		metric.WithDescription("User balance in USD"),
+		metric.WithUnit("USD"),
+	)
+	if err11 != nil {
+		return fmt.Errorf("failed to create userBalanceGauge: %w", err11)
+	}
+
+	c.modelUsageCounter, err12 = meter.Int64Counter(
+		"guardian_model_usage_total",
+		metric.WithDescription("Total number of requests per model"),
+	)
+	if err12 != nil {
+		return fmt.Errorf("failed to create modelUsageCounter: %w", err12)
+	}
 
 	// Initialize NLP metrics
 	fmt.Printf("Starting NLP metrics initialization\n")
@@ -372,7 +426,7 @@ func (c *Client) setupTracing(res *resource.Resource) error {
 
 	// Create a tracer
 	tracer := tracerProvider.Tracer(
-		"github.com/rohanadwankar/guardian",
+		"github.com/ticket-ai/ticket",
 		trace.WithInstrumentationVersion(c.Version()),
 	)
 
@@ -519,6 +573,54 @@ func (c *Client) RecordEvent(ctx context.Context, event Event) error {
 			span.SetStatus(codes.Ok, "Success")
 		}
 
+		// Add attributes for matched rules
+		for _, rule := range event.MatchedRules {
+			span.SetAttributes(
+				attribute.String("rule.name", rule.Name),
+				attribute.String("rule.pattern", rule.Pattern),
+				attribute.String("rule.severity", rule.Severity),
+				attribute.String("rule.description", rule.Description),
+			)
+		}
+
+		// Add NLP metrics as attributes for better filtering in dashboards
+		span.SetAttributes(
+			attribute.Float64("nlp.sentiment", event.NLPMetrics.Sentiment),
+			attribute.Float64("nlp.toxicity", event.NLPMetrics.Toxicity),
+			attribute.Float64("nlp.pii", event.NLPMetrics.PII),
+			attribute.Float64("nlp.profanity", event.NLPMetrics.Profanity),
+			attribute.Float64("nlp.bias", event.NLPMetrics.Bias),
+			attribute.Float64("nlp.emotional", event.NLPMetrics.Emotional),
+			attribute.Float64("nlp.manipulative", event.NLPMetrics.Manipulative),
+			attribute.Float64("nlp.jailbreak_intent", event.NLPMetrics.JailbreakIntent),
+		)
+
+		// Add UserID if available
+		if event.UserID != "" {
+			span.SetAttributes(attribute.String("user.id", event.UserID))
+		}
+
+		// Add reasons as attributes if available
+		if reasons, ok := ctx.Value("throttle_reasons").([]string); ok {
+			for i, reason := range reasons {
+				span.SetAttributes(attribute.String(fmt.Sprintf("throttle.reason.%d", i), reason))
+			}
+		}
+
+		// Add NLP metrics to span
+		if metrics, ok := ctx.Value("nlp_metrics").(analyzer.NLPMetrics); ok {
+			span.SetAttributes(
+				attribute.Float64("nlp.sentiment", metrics.Sentiment),
+				attribute.Float64("nlp.toxicity", metrics.Toxicity),
+				attribute.Float64("nlp.pii", metrics.PII),
+				attribute.Float64("nlp.profanity", metrics.Profanity),
+				attribute.Float64("nlp.bias", metrics.Bias),
+				attribute.Float64("nlp.emotional", metrics.Emotional),
+				attribute.Float64("nlp.manipulative", metrics.Manipulative),
+				attribute.Float64("nlp.jailbreak_intent", metrics.JailbreakIntent),
+			)
+		}
+
 		span.End()
 	}
 
@@ -547,67 +649,361 @@ func (c *Client) Shutdown() error {
 }
 
 // GetTotalRequests returns the total number of requests processed
-func (c *Client) GetTotalRequests(ctx context.Context) int {
-	// For a proper implementation, you'd maintain a counter or fetch from your metrics system
-	return 200 // Placeholder value
+func (c *Client) GetTotalRequests(ctx context.Context) (int64, error) {
+	if !c.config.MetricsEnabled || c.meter == nil {
+		return 0, fmt.Errorf("metrics not enabled")
+	}
+
+	// Create a view to get the current value of the counter
+	view, err := c.meterProvider.View(
+		"guardian_requests_total",
+		metric.WithDescription("Total number of AI requests processed"),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create view: %w", err)
+	}
+
+	// Get the current value
+	value, err := view.Get(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get counter value: %w", err)
+	}
+
+	return value, nil
 }
 
 // GetFlaggedRequests returns the number of flagged requests
-func (c *Client) GetFlaggedRequests(ctx context.Context) int {
-	// For a proper implementation, you'd maintain a counter or fetch from your metrics system
-	return 15 // Placeholder value
+func (c *Client) GetFlaggedRequests(ctx context.Context) (int64, error) {
+	if !c.config.MetricsEnabled || c.meter == nil {
+		return 0, fmt.Errorf("metrics not enabled")
+	}
+
+	view, err := c.meterProvider.View(
+		"guardian_flagged_requests_total",
+		metric.WithDescription("Total number of AI requests flagged by rules"),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create view: %w", err)
+	}
+
+	value, err := view.Get(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get counter value: %w", err)
+	}
+
+	return value, nil
 }
 
 // GetEstimatedCost returns the total estimated cost
-func (c *Client) GetEstimatedCost(ctx context.Context) float64 {
-	// For a proper implementation, you'd maintain a running sum or fetch from your metrics system
-	return 12.50 // Placeholder value
+func (c *Client) GetEstimatedCost(ctx context.Context) (float64, error) {
+	if !c.config.MetricsEnabled || c.meter == nil {
+		return 0, fmt.Errorf("metrics not enabled")
+	}
+
+	view, err := c.meterProvider.View(
+		"guardian_estimated_cost_USD_total",
+		metric.WithDescription("Estimated cost of AI requests based on token usage"),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create view: %w", err)
+	}
+
+	value, err := view.Get(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get counter value: %w", err)
+	}
+
+	return value, nil
 }
 
 // GetRecentToxicityScores returns recent toxicity scores
-func (c *Client) GetRecentToxicityScores(ctx context.Context, limit int) []float64 {
-	// In a real implementation, you'd maintain a circular buffer or other data structure
-	return []float64{0.1, 0.2, 0.3, 0.4, 0.5} // Placeholder
+func (c *Client) GetRecentToxicityScores(ctx context.Context, limit int) ([]float64, error) {
+	if !c.config.MetricsEnabled || c.meter == nil {
+		return nil, fmt.Errorf("metrics not enabled")
+	}
+
+	view, err := c.meterProvider.View(
+		"guardian_nlp_toxicity",
+		metric.WithDescription("Distribution of toxicity scores"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create view: %w", err)
+	}
+
+	// Get the histogram data
+	histogram, err := view.GetHistogram(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get histogram: %w", err)
+	}
+
+	// Get the most recent buckets
+	buckets := histogram.Buckets
+	if len(buckets) > limit {
+		buckets = buckets[len(buckets)-limit:]
+	}
+
+	// Convert buckets to scores
+	scores := make([]float64, len(buckets))
+	for i, bucket := range buckets {
+		scores[i] = bucket.UpperBound
+	}
+
+	return scores, nil
 }
 
-// Add these functions after the existing GetRecentToxicityScores method
-
 // GetBlockedRequests returns the number of blocked requests
-func (c *Client) GetBlockedRequests(ctx context.Context) int {
-	// For a proper implementation, you'd maintain a counter or fetch from your metrics system
-	return 5 // Placeholder value
+func (c *Client) GetBlockedRequests(ctx context.Context) (int64, error) {
+	if !c.config.MetricsEnabled || c.meter == nil {
+		return 0, fmt.Errorf("metrics not enabled")
+	}
+
+	view, err := c.meterProvider.View(
+		"guardian_requests_blocked_total",
+		metric.WithDescription("Total number of AI requests blocked"),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create view: %w", err)
+	}
+
+	value, err := view.Get(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get counter value: %w", err)
+	}
+
+	return value, nil
 }
 
 // GetAverageScore returns the average analysis score
-func (c *Client) GetAverageScore(ctx context.Context) float64 {
-	// For a proper implementation, you'd calculate this from accumulated scores
-	return 0.42 // Placeholder value
+func (c *Client) GetAverageScore(ctx context.Context) (float64, error) {
+	if !c.config.MetricsEnabled || c.meter == nil {
+		return 0, fmt.Errorf("metrics not enabled")
+	}
+
+	// Get the total requests and total score
+	totalRequests, err := c.GetTotalRequests(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get total requests: %w", err)
+	}
+
+	if totalRequests == 0 {
+		return 0, nil
+	}
+
+	// Get the sum of all scores from the histogram
+	view, err := c.meterProvider.View(
+		"guardian_analysis_score",
+		metric.WithDescription("Distribution of analysis scores"),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create view: %w", err)
+	}
+
+	histogram, err := view.GetHistogram(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get histogram: %w", err)
+	}
+
+	// Calculate average from histogram
+	var sum float64
+	for _, bucket := range histogram.Buckets {
+		sum += bucket.Count * bucket.UpperBound
+	}
+
+	return sum / float64(totalRequests), nil
 }
 
 // GetRecentProfanityScores returns recent profanity scores
-func (c *Client) GetRecentProfanityScores(ctx context.Context, limit int) []float64 {
-	// In a real implementation, you'd maintain a circular buffer or other data structure
-	return []float64{0.05, 0.15, 0.0, 0.2, 0.1} // Placeholder
+func (c *Client) GetRecentProfanityScores(ctx context.Context, limit int) ([]float64, error) {
+	if !c.config.MetricsEnabled || c.meter == nil {
+		return nil, fmt.Errorf("metrics not enabled")
+	}
+
+	view, err := c.meterProvider.View(
+		"guardian_nlp_profanity",
+		metric.WithDescription("Distribution of profanity scores"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create view: %w", err)
+	}
+
+	histogram, err := view.GetHistogram(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get histogram: %w", err)
+	}
+
+	buckets := histogram.Buckets
+	if len(buckets) > limit {
+		buckets = buckets[len(buckets)-limit:]
+	}
+
+	scores := make([]float64, len(buckets))
+	for i, bucket := range buckets {
+		scores[i] = bucket.UpperBound
+	}
+
+	return scores, nil
 }
 
 // GetRecentPIIScores returns recent PII detection scores
-func (c *Client) GetRecentPIIScores(ctx context.Context, limit int) []float64 {
-	// In a real implementation, you'd maintain a circular buffer or other data structure
-	return []float64{0.0, 0.1, 0.3, 0.05, 0.0} // Placeholder
+func (c *Client) GetRecentPIIScores(ctx context.Context, limit int) ([]float64, error) {
+	if !c.config.MetricsEnabled || c.meter == nil {
+		return nil, fmt.Errorf("metrics not enabled")
+	}
+
+	view, err := c.meterProvider.View(
+		"guardian_nlp_pii_detection",
+		metric.WithDescription("Distribution of PII detection scores"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create view: %w", err)
+	}
+
+	histogram, err := view.GetHistogram(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get histogram: %w", err)
+	}
+
+	buckets := histogram.Buckets
+	if len(buckets) > limit {
+		buckets = buckets[len(buckets)-limit:]
+	}
+
+	scores := make([]float64, len(buckets))
+	for i, bucket := range buckets {
+		scores[i] = bucket.UpperBound
+	}
+
+	return scores, nil
 }
 
 // GetRecentBiasScores returns recent bias scores
-func (c *Client) GetRecentBiasScores(ctx context.Context, limit int) []float64 {
-	// In a real implementation, you'd maintain a circular buffer or other data structure
-	return []float64{0.1, 0.15, 0.2, 0.05, 0.1} // Placeholder
+func (c *Client) GetRecentBiasScores(ctx context.Context, limit int) ([]float64, error) {
+	if !c.config.MetricsEnabled || c.meter == nil {
+		return nil, fmt.Errorf("metrics not enabled")
+	}
+
+	view, err := c.meterProvider.View(
+		"guardian_nlp_bias",
+		metric.WithDescription("Distribution of bias scores"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create view: %w", err)
+	}
+
+	histogram, err := view.GetHistogram(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get histogram: %w", err)
+	}
+
+	buckets := histogram.Buckets
+	if len(buckets) > limit {
+		buckets = buckets[len(buckets)-limit:]
+	}
+
+	scores := make([]float64, len(buckets))
+	for i, bucket := range buckets {
+		scores[i] = bucket.UpperBound
+	}
+
+	return scores, nil
 }
 
 // GetRequestsPerModel returns the count of requests per model
-func (c *Client) GetRequestsPerModel(ctx context.Context) map[string]int {
-	// In a real implementation, you'd track this per model
-	return map[string]int{
-		"gpt-3.5-turbo": 65,
-		"gpt-4":         25,
-		"claude-2":      10,
-	} // Placeholder
+func (c *Client) GetRequestsPerModel(ctx context.Context) (map[string]int64, error) {
+	if !c.config.MetricsEnabled || c.meter == nil {
+		return nil, fmt.Errorf("metrics not enabled")
+	}
+
+	view, err := c.meterProvider.View(
+		"guardian_model_usage_total",
+		metric.WithDescription("Total number of requests per model"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create view: %w", err)
+	}
+
+	// Get the counter data with model attribute
+	counters, err := view.GetCounters(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get counters: %w", err)
+	}
+
+	// Convert to map
+	result := make(map[string]int64)
+	for _, counter := range counters {
+		model := counter.Attributes.Value("model").AsString()
+		result[model] = counter.Value
+	}
+
+	return result, nil
+}
+
+// RecordCostEvent records cost-related metrics
+func (c *Client) RecordCostEvent(ctx context.Context, event CostEvent) error {
+	if !c.config.MetricsEnabled {
+		return nil
+	}
+
+	// Common attributes
+	attrs := []attribute.KeyValue{
+		attribute.String("model", event.Model),
+		attribute.String("user_id", event.UserID),
+		attribute.Float64("cost", event.Cost),
+		attribute.Int64("input_tokens", int64(event.InputTokens)),
+		attribute.Int64("output_tokens", int64(event.OutputTokens)),
+	}
+
+	// Record cost per model
+	c.costPerModelCounter.Add(ctx, event.Cost, metric.WithAttributes(attrs...))
+
+	// Record cost per user
+	c.costPerUserCounter.Add(ctx, event.Cost, metric.WithAttributes(attrs...))
+
+	// Record model usage
+	c.modelUsageCounter.Add(ctx, 1, metric.WithAttributes(attrs...))
+
+	// Record user usage
+	c.userUsageCounter.Add(ctx, 1, metric.WithAttributes(attrs...))
+
+	// Update user balance
+	c.userBalanceGauge.Add(ctx, -event.Cost, metric.WithAttributes(attrs...))
+
+	// Update global balance
+	c.globalBalanceGauge.Add(ctx, -event.Cost)
+
+	// Record throttled requests if applicable
+	if event.Throttled {
+		c.throttledRequestsCounter.Add(ctx, 1, metric.WithAttributes(attrs...))
+	}
+
+	return nil
+}
+
+// UpdateBalance updates the balance metrics
+func (c *Client) UpdateBalance(ctx context.Context, userID string, amount float64) error {
+	if !c.config.MetricsEnabled {
+		return nil
+	}
+
+	attrs := []attribute.KeyValue{
+		attribute.String("user_id", userID),
+	}
+
+	// Update user balance
+	c.userBalanceGauge.Add(ctx, amount, metric.WithAttributes(attrs...))
+
+	// Update global balance
+	c.globalBalanceGauge.Add(ctx, amount)
+
+	return nil
+}
+
+// CostEvent represents a cost-related event
+type CostEvent struct {
+	Model       string
+	UserID      string
+	Cost        float64
+	InputTokens int
+	OutputTokens int
+	Throttled   bool
 }
