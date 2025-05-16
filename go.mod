@@ -1,4 +1,4 @@
-module github.com/rohanadwankar/guardian
+module github.com/ticket-ai/ticket
 
 go 1.23.0
 

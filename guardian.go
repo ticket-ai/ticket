@@ -7,9 +7,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/rohanadwankar/guardian/pkg/analyzer"
-	"github.com/rohanadwankar/guardian/pkg/middleware"
-	"github.com/rohanadwankar/guardian/pkg/telemetry"
+	"github.com/ticket-ai/ticket/pkg/analyzer"
+	"github.com/ticket-ai/ticket/pkg/middleware"
+	"github.com/ticket-ai/ticket/pkg/telemetry"
 )
 
 // Config contains the configuration options for Guardian.
